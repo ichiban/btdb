@@ -1,9 +1,13 @@
 package btree
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
+	"sort"
+
+	"github.com/pkg/errors"
 )
 
 type PageNo uint32
@@ -17,90 +21,144 @@ const (
 	Overflow
 )
 
+func (t PageType) String() string {
+	switch t {
+	case Free:
+		return "free"
+	case Branch:
+		return "branch"
+	case Leaf:
+		return "leaf"
+	case Overflow:
+		return "overflow"
+	default:
+		return "unknown"
+	}
+}
+
 type Page struct {
-	Type  PageType
-	Next  PageNo // rightmost pointer in Branch page. next in Overflow page.
-	Cells []Cell
+	size int
+
+	PageNo PageNo
+	Type   PageType
+	Next   PageNo // rightmost pointer in Branch page. next in Overflow page.
+	Cells  Cells
 }
 
 const PageHeaderSize = 1 + 3 + 4 + 4 + 4
 
-func NewPage(size, cellSize int) Page {
-	cells := make([]Cell, (size-PageHeaderSize)/cellSize)
+func NewPage(size, cellSize int) *Page {
+	cells := make([]*Cell, (size-PageHeaderSize)/cellSize)
 	for i := range cells {
 		cells[i] = NewCell(cellSize)
 	}
-	return Page{
+	return &Page{
+		size:  size,
 		Cells: cells[:0],
 	}
 }
 
 func (p *Page) ReadFrom(r io.Reader) (int64, error) {
-	if err := binary.Read(r, binary.BigEndian, &p.Type); err != nil {
-		return 0, err
+	buf := bytes.NewBuffer(make([]byte, 0, p.size))
+
+	n, err := io.CopyN(buf, r, int64(p.size))
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to read page")
 	}
 
-	if _, err := io.CopyN(ioutil.Discard, r, 3); err != nil {
-		return 0, err
+	if err := binary.Read(buf, binary.BigEndian, &p.Type); err != nil {
+		return 0, errors.Wrap(err, "failed to read page type")
 	}
 
-	if err := binary.Read(r, binary.BigEndian, &p.Next); err != nil {
-		return 0, err
+	if _, err := io.CopyN(ioutil.Discard, buf, 3); err != nil {
+		return 0, errors.Wrap(err, "failed to skip 3 bytes")
 	}
 
-	if _, err := io.CopyN(ioutil.Discard, r, 4); err != nil {
-		return 0, err
+	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
+		return 0, errors.Wrap(err, "failed to read next page no")
+	}
+
+	if _, err := io.CopyN(ioutil.Discard, buf, 4); err != nil {
+		return 0, errors.Wrap(err, "failed to skip 4 bytes")
 	}
 
 	var size uint32
-	if err := binary.Read(r, binary.BigEndian, &size); err != nil {
-		return 0, err
+	if err := binary.Read(buf, binary.BigEndian, &size); err != nil {
+		return 0, errors.Wrap(err, "failed to read size")
 	}
 
-	p.Cells = p.Cells[:cap(p.Cells)]
-
-	var nc int64
-	for i := range p.Cells {
-		n, err := p.Cells[i].ReadFrom(r)
-		if err != nil {
-			return 0, err
-		}
-		nc += n
-	}
 	p.Cells = p.Cells[:size]
+	for i := range p.Cells {
+		if _, err := p.Cells[i].ReadFrom(buf); err != nil {
+			return 0, errors.Wrapf(err, "failed to read cell: %d", i)
+		}
+	}
 
-	return int64(PageHeaderSize) + nc, nil
+	return int64(n), nil
 }
 
 func (p *Page) WriteTo(w io.Writer) (int64, error) {
-	if err := binary.Write(w, binary.BigEndian, &p.Type); err != nil {
+	buf := bytes.NewBuffer(make([]byte, 0, p.size))
+
+	if err := binary.Write(buf, binary.BigEndian, &p.Type); err != nil {
 		return 0, err
 	}
 
-	if _, err := w.Write(make([]byte, 3)); err != nil {
+	if _, err := buf.Write(make([]byte, 3)); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(w, binary.BigEndian, &p.Next); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.Next); err != nil {
 		return 0, err
 	}
 
-	if _, err := w.Write(make([]byte, 4)); err != nil {
+	if _, err := buf.Write(make([]byte, 4)); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(w, binary.BigEndian, uint32(len(p.Cells))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint32(len(p.Cells))); err != nil {
 		return 0, err
 	}
 
-	var nc int64
-	for _, c := range p.Cells[:cap(p.Cells)] {
-		n, err := c.WriteTo(w)
-		if err != nil {
+	for _, c := range p.Cells {
+		if _, err := c.WriteTo(buf); err != nil {
 			return 0, err
 		}
-		nc += n
 	}
 
-	return int64(PageHeaderSize) + nc, nil
+	n, err := w.Write(buf.Bytes()[:p.size])
+	return int64(n), err
+}
+
+func (p *Page) Insert(c *Cell) {
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return bytes.Compare(c.Key, p.Cells[i].Key) > 0
+	})
+	p.Cells = p.Cells[:len(p.Cells)+1]
+	copy(p.Cells[i+1:], p.Cells[i:])
+	p.Cells[i] = c
+}
+
+func (p *Page) Full() bool {
+	return len(p.Cells) == cap(p.Cells)
+}
+
+func (p *Page) Contains(key []byte) bool {
+	if p.Type != Leaf {
+		panic("not implemented yet")
+	}
+	// TODO: binary search?
+	for _, c := range p.Cells {
+		if bytes.Equal(key, c.Key) {
+			return true
+		}
+	}
+	return false
+}
+
+type Cells []*Cell
+
+func (c *Cells) Set(s []*Cell) {
+	*c = (*c)[:len(s)]
+	copy(*c, s)
 }

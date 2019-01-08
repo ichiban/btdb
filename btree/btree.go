@@ -2,8 +2,8 @@ package btree
 
 import (
 	"bytes"
+	"fmt"
 	"io"
-	"log"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -17,80 +17,183 @@ type BTree struct {
 }
 
 func (t *BTree) Search(key []byte) ([]byte, error) {
-	p := NewPage(int(t.PageSize), int(t.CellSize))
-	if err := t.Get(&p, 0); err != nil {
+	p, err := t.Get(0)
+	if err != nil {
 		return nil, err
 	}
-	if err := t.searchLeaf(key, &p); err != nil {
+	path, err := t.searchLeaf(key, p)
+	if err != nil {
 		return nil, err
 	}
-	for _, c := range p.Cells {
-		if bytes.HasPrefix(c.Payload, key) {
-			return c.Payload[len(key):], nil
-		}
-	}
-	return nil, nil
+	leaf := path[0]
+	i := sort.Search(len(leaf.Cells), func(i int) bool {
+		return bytes.Equal(key, leaf.Cells[i].Key)
+	})
+	return leaf.Cells[i].Value, nil
 }
 
 // TODO: cache
-func (t *BTree) Get(p *Page, i PageNo) error {
+func (t *BTree) Get(i PageNo) (*Page, error) {
+	p := NewPage(int(t.PageSize), int(t.CellSize))
+	p.PageNo = i
 	if _, err := t.File.Seek(int64(uint32(i)*t.PageSize), io.SeekStart); err != nil {
-		return errors.Wrap(err, "failed to seek start")
+		return nil, errors.Wrap(err, "failed to seek start")
 	}
-	_, err := p.ReadFrom(t.File)
-	return errors.Wrap(err, "failed to read page")
+	n, err := p.ReadFrom(t.File)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read page")
+	}
+	if n != int64(t.PageSize) {
+		panic(errors.New("wrong size"))
+	}
+	return p, nil
 }
 
-func (t *BTree) Set(p *Page, i PageNo) error {
-	if _, err := t.File.Seek(int64(uint32(i)*t.PageSize), io.SeekStart); err != nil {
+func (t *BTree) Update(p *Page) error {
+	if _, err := t.File.Seek(int64(uint32(p.PageNo)*t.PageSize), io.SeekStart); err != nil {
 		return errors.Wrap(err, "failed to seek start")
 	}
-	_, err := p.WriteTo(t.File)
-	return errors.Wrap(err, "failed to write page")
+	n, err := p.WriteTo(t.File)
+	if err != nil {
+		return errors.Wrap(err, "failed to write page")
+	}
+	if n != int64(t.PageSize) {
+		panic(errors.New("wrong size"))
+	}
+	return nil
 }
 
-func (t *BTree) searchLeaf(key []byte, p *Page) error {
-	if p.Type == Leaf {
-		return nil
+func (t *BTree) Create(p *Page) error {
+	offset, err := t.File.Seek(0, io.SeekEnd)
+	if err != nil {
+		return errors.Wrap(err, "failed to seek end")
 	}
-	for _, c := range p.Cells {
-		if bytes.Compare(key, c.Payload) <= 0 {
-			if err := t.Get(p, c.Left); err != nil {
-				return err
+	n, err := p.WriteTo(t.File)
+	if err != nil {
+		return errors.Wrap(err, "failed to write page")
+	}
+	if n != int64(t.PageSize) {
+		panic(errors.New("wrong size"))
+	}
+	p.PageNo = PageNo(offset / int64(t.PageSize))
+	return nil
+}
+
+func (t *BTree) searchLeaf(key []byte, p *Page) ([]*Page, error) {
+	switch p.Type {
+	case Leaf:
+		return []*Page{p}, nil
+	case Branch:
+		for _, c := range p.Cells {
+			if bytes.Compare(key, c.Key) <= 0 {
+				q, err := t.Get(c.Left)
+				if err != nil {
+					return nil, err
+				}
+				path, err := t.searchLeaf(key, q)
+				if err != nil {
+					return nil, err
+				}
+				return append(path, p), nil
 			}
-			return t.searchLeaf(key, p)
 		}
+		q, err := t.Get(p.Next)
+		if err != nil {
+			return nil, err
+		}
+		path, err := t.searchLeaf(key, q)
+		if err != nil {
+			return nil, err
+		}
+		return append(path, p), nil
+	default:
+		return nil, errors.New("invalid page type")
 	}
-	if err := t.Get(p, p.Next); err != nil {
-		return err
-	}
-	return t.searchLeaf(key, p)
 }
-
-var ErrOverflow = errors.New("overflow")
 
 func (t *BTree) Insert(key, value []byte) error {
-	p := NewPage(int(t.PageSize), int(t.CellSize))
-	if err := t.Get(&p, 0); err != nil {
+	p, err := t.Get(0)
+	if err != nil {
 		return errors.Wrap(err, "failed to Get root page")
 	}
-	if err := t.searchLeaf(key, &p); err != nil {
-		return errors.Wrap(err, "failed to search leaf page")
+
+	c := NewCell(int(t.CellSize))
+	c.Key = key
+	c.Value = value
+
+	m, err := t.insert(p, c)
+	if err != nil {
+		return errors.Wrap(err, "failed to insert")
 	}
-	if len(p.Cells) == cap(p.Cells) {
-		// TODO: split
-		log.Print("split!")
+	if m != nil {
+		// needs a root page
+		p := NewPage(int(t.PageSize), int(t.CellSize))
+		p.Type = Branch
+		p.Cells = p.Cells[:1]
+		p.Cells[0] = m
+		if err := t.Create(p); err != nil {
+			return errors.Wrap(err, "failed to create root page")
+		}
 	}
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return bytes.Compare(key, p.Cells[i].Payload) > 0
-	})
-	p.Cells = p.Cells[:len(p.Cells)+1]
-	copy(p.Cells[i+1:], p.Cells[i:])
-	payload := append(key, value...)
-	if len(payload) > cap(p.Cells[i].Payload) {
-		return ErrOverflow
+	return nil
+}
+
+func (t *BTree) split(p *Page) (*Page, *Cell, *Page, error) {
+	i := len(p.Cells) / 2
+	key := p.Cells[i].Key
+
+	left := NewPage(int(t.PageSize), int(t.CellSize))
+	left.Type = p.Type
+	left.Cells.Set(p.Cells[:i])
+	if err := t.Create(left); err != nil {
+		return nil, nil, nil, err
 	}
-	p.Cells[i].Payload = p.Cells[i].Payload[:len(payload)]
-	copy(p.Cells[i].Payload, payload)
-	return t.Set(&p, 0)
+
+	right := p
+	right.Cells.Set(p.Cells[i:])
+	if err := t.Update(right); err != nil {
+		return nil, nil, nil, err
+	}
+
+	c := NewCell(int(t.CellSize))
+	c.Key = key
+	c.Left = left.PageNo
+
+	return left, c, right, nil
+}
+
+func (t *BTree) insert(p *Page, c *Cell) (*Cell, error) {
+	var middle *Cell
+	if p.Full() {
+		l, m, r, err := t.split(p)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to split")
+		}
+		switch {
+		case l.Contains(c.Key):
+			p = l
+		case r.Contains(c.Key):
+			p = r
+		}
+		middle = m
+	}
+	switch p.Type {
+	case Leaf:
+		p.Insert(c)
+		if err := t.Update(p); err != nil {
+			return nil, errors.Wrap(err, "failed to update")
+		}
+		return middle, nil
+	case Branch:
+		m, err := t.insert(p, c)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to insert")
+		}
+		if m != nil {
+			p.Insert(m)
+		}
+		return middle, nil
+	default:
+		return nil, fmt.Errorf("invalid page type: %s", p.Type)
+	}
 }
