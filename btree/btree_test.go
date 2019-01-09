@@ -27,10 +27,15 @@ func TestBTree_Insert(t *testing.T) {
 	assert.NoError(b.Create(p))
 
 	assert.NoError(b.Insert([]byte("x"), []byte("1")))
-
 	v, err := b.Search([]byte("x"))
 	assert.NoError(err)
 	assert.Equal([]byte("1"), v)
 
-	// assert.NoError(b.Insert([]byte("x"), []byte("2")))
+	assert.NoError(b.Insert([]byte("y"), []byte("2")))
+	v, err = b.Search([]byte("y"))
+	assert.NoError(err)
+	assert.Equal([]byte("2"), v)
+
+	// duplicate key
+	assert.Error(b.Insert([]byte("x"), []byte("2")))
 }

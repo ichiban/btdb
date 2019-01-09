@@ -130,13 +130,19 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 	return int64(n), err
 }
 
-func (p *Page) Insert(c *Cell) {
+var ErrDuplicateKey = errors.New("duplicate key")
+
+func (p *Page) Insert(c *Cell) error {
 	i := sort.Search(len(p.Cells), func(i int) bool {
-		return bytes.Compare(c.Key, p.Cells[i].Key) > 0
+		return bytes.Compare(c.Key, p.Cells[i].Key) >= 0
 	})
+	if len(p.Cells) > 0 && i < len(p.Cells) && bytes.Equal(p.Cells[i].Key, c.Key) {
+		return ErrDuplicateKey
+	}
 	p.Cells = p.Cells[:len(p.Cells)+1]
 	copy(p.Cells[i+1:], p.Cells[i:])
 	p.Cells[i] = c
+	return nil
 }
 
 func (p *Page) Full() bool {
@@ -144,16 +150,15 @@ func (p *Page) Full() bool {
 }
 
 func (p *Page) Contains(key []byte) bool {
-	if p.Type != Leaf {
-		panic("not implemented yet")
+	if len(p.Cells) == 0 {
+		return false
 	}
-	// TODO: binary search?
-	for _, c := range p.Cells {
-		if bytes.Equal(key, c.Key) {
-			return true
-		}
-	}
-	return false
+
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return bytes.Compare(key, p.Cells[i].Key) >= 0
+	})
+
+	return i < len(p.Cells) && bytes.Equal(key, p.Cells[0].Key)
 }
 
 type Cells []*Cell
