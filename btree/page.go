@@ -41,7 +41,8 @@ type Page struct {
 
 	PageNo PageNo
 	Type   PageType
-	Next   PageNo // rightmost pointer in Branch page. next in Overflow page.
+	Prev   PageNo
+	Next   PageNo // rightmost pointer in Branch page. next in Leaf/Overflow page.
 	Cells  Cells
 }
 
@@ -74,12 +75,12 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to skip 3 bytes")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
-		return 0, errors.Wrap(err, "failed to read next page no")
+	if err := binary.Read(buf, binary.BigEndian, &p.Prev); err != nil {
+		return 0, errors.Wrap(err, "failed to read prev page no")
 	}
 
-	if _, err := io.CopyN(ioutil.Discard, buf, 4); err != nil {
-		return 0, errors.Wrap(err, "failed to skip 4 bytes")
+	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
+		return 0, errors.Wrap(err, "failed to read next page no")
 	}
 
 	var size uint32
@@ -159,6 +160,17 @@ func (p *Page) Contains(key []byte) bool {
 	})
 
 	return i < len(p.Cells) && bytes.Equal(key, p.Cells[0].Key)
+}
+
+func (p *Page) Delete(key []byte) error {
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return bytes.Compare(key, p.Cells[i].Key) >= 0
+	})
+	if len(p.Cells) == 0 || i >= len(p.Cells) || !bytes.Equal(p.Cells[i].Key, key) {
+		return ErrNotFound
+	}
+	p.Cells = p.Cells[:i+copy(p.Cells[i:], p.Cells[i+1:])]
+	return nil
 }
 
 type Cells []*Cell

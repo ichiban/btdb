@@ -153,12 +153,14 @@ func (t *BTree) split(p *Page) (*Page, *Cell, *Page, error) {
 
 	left := NewPage(int(t.PageSize), int(t.CellSize))
 	left.Type = p.Type
+	left.Next = p.PageNo
 	left.Cells.Set(p.Cells[:i])
 	if err := t.Create(left); err != nil {
 		return nil, nil, nil, err
 	}
 
 	right := p
+	right.Prev = left.PageNo
 	right.Cells.Set(p.Cells[i:])
 	if err := t.Update(right); err != nil {
 		return nil, nil, nil, err
@@ -212,4 +214,20 @@ func (t *BTree) insert(p *Page, c *Cell) (*Cell, error) {
 	default:
 		return nil, fmt.Errorf("invalid page type: %s", p.Type)
 	}
+}
+
+// TODO: merge and redistribute
+func (t *BTree) Delete(key []byte) error {
+	root, err := t.Get(0)
+	if err != nil {
+		return err
+	}
+	l, err := t.searchLeaf(key, root)
+	if err != nil {
+		return err
+	}
+	if err := l.Delete(key); err != nil {
+		return err
+	}
+	return t.Update(l)
 }
