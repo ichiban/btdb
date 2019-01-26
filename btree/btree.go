@@ -1,7 +1,6 @@
 package btree
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"sort"
@@ -18,7 +17,7 @@ type BTree struct {
 
 var ErrNotFound = errors.New("not found")
 
-func (t *BTree) Search(key []byte) ([]byte, error) {
+func (t *BTree) Search(key Values) (Values, error) {
 	p, err := t.Get(0)
 	if err != nil {
 		return nil, err
@@ -31,9 +30,9 @@ func (t *BTree) Search(key []byte) ([]byte, error) {
 		return nil, ErrNotFound
 	}
 	i := sort.Search(len(l.Cells), func(i int) bool {
-		return bytes.Compare(key, l.Cells[i].Key) >= 0
+		return key.Compare(l.Cells[i].Key) >= 0
 	})
-	if i < len(l.Cells) && bytes.Equal(l.Cells[i].Key, key) {
+	if i < len(l.Cells) && l.Cells[i].Key.Compare(key) == 0 {
 		return l.Cells[i].Value, nil
 	}
 	return nil, ErrNotFound
@@ -88,13 +87,13 @@ func (t *BTree) Create(p *Page) error {
 	return nil
 }
 
-func (t *BTree) searchLeaf(key []byte, p *Page) (*Page, error) {
+func (t *BTree) searchLeaf(key Values, p *Page) (*Page, error) {
 	switch p.Type {
 	case Leaf:
 		return p, nil
 	case Branch:
 		for _, c := range p.Cells {
-			if bytes.Compare(key, c.Key) <= 0 {
+			if key.Compare(c.Key) <= 0 {
 				q, err := t.Get(c.Left)
 				if err != nil {
 					return nil, err
@@ -120,7 +119,7 @@ func (t *BTree) searchLeaf(key []byte, p *Page) (*Page, error) {
 	}
 }
 
-func (t *BTree) Insert(key, value []byte) error {
+func (t *BTree) Insert(key, value Values) error {
 	p, err := t.Get(0)
 	if err != nil {
 		return errors.Wrap(err, "failed to Get root page")
@@ -217,7 +216,7 @@ func (t *BTree) insert(p *Page, c *Cell) (*Cell, error) {
 }
 
 // TODO: merge and redistribute
-func (t *BTree) Delete(key []byte) error {
+func (t *BTree) Delete(key Values) error {
 	root, err := t.Get(0)
 	if err != nil {
 		return err

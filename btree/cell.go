@@ -3,8 +3,11 @@ package btree
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"io/ioutil"
+
+	"github.com/ugorji/go/codec"
 
 	"github.com/pkg/errors"
 )
@@ -13,12 +16,10 @@ type Cell struct {
 	size int
 
 	Overflow PageNo // Points to the overflow page if it's not large enough. otherwise zero-value.
-	Left     PageNo
-	Key      []byte
-	Value    []byte
+	Payload
 }
 
-const CellHeaderSize = 4 + 4 + 4 + 4 // Overflow + Left + Key Size + Value Size
+const CellHeaderSize = 4 + 4 // Overflow + Payload Size
 
 func NewCell(size int) *Cell {
 	return &Cell{
@@ -31,31 +32,21 @@ func (c *Cell) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to read cell overflow")
 	}
 
-	if err := binary.Read(r, binary.BigEndian, &c.Left); err != nil {
-		return 0, errors.Wrap(err, "failed to read cell left")
-	}
-
-	var keySize uint32
-	if err := binary.Read(r, binary.BigEndian, &keySize); err != nil {
+	var size uint32
+	if err := binary.Read(r, binary.BigEndian, &size); err != nil {
 		return 0, errors.Wrap(err, "failed to read key size")
 	}
-
-	var valSize uint32
-	if err := binary.Read(r, binary.BigEndian, &valSize); err != nil {
-		return 0, errors.Wrap(err, "failed to read value size")
+	b := bytes.NewBuffer(make([]byte, 0, size))
+	if _, err := io.CopyN(b, r, int64(size)); err != nil {
+		return 0, err
 	}
-
-	c.Key = make([]byte, keySize)
-	if err := binary.Read(r, binary.BigEndian, &c.Key); err != nil {
+	d := codec.NewDecoder(b, &handle)
+	if err := d.Decode(&c.Payload); err != nil {
 		return 0, err
 	}
 
-	c.Value = make([]byte, valSize)
-	if err := binary.Read(r, binary.BigEndian, &c.Value); err != nil {
-		return 0, err
-	}
-
-	if _, err := io.CopyN(ioutil.Discard, r, int64(c.size)-int64(CellHeaderSize)-int64(keySize)-int64(valSize)); err != nil {
+	// TODO: overflow
+	if _, err := io.CopyN(ioutil.Discard, r, int64(c.size)-int64(CellHeaderSize)-int64(size)); err != nil {
 		return 0, err
 	}
 
@@ -67,21 +58,30 @@ func (c *Cell) WriteTo(w io.Writer) (int64, error) {
 	if err := binary.Write(buf, binary.BigEndian, c.Overflow); err != nil {
 		return 0, err
 	}
-	if err := binary.Write(buf, binary.BigEndian, c.Left); err != nil {
+
+	b := bytes.NewBuffer(nil)
+	e := codec.NewEncoder(b, &handle)
+	if err := e.Encode(&c.Payload); err != nil {
 		return 0, err
 	}
-	if err := binary.Write(buf, binary.BigEndian, uint32(len(c.Key))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint32(len(b.Bytes()))); err != nil {
 		return 0, err
 	}
-	if err := binary.Write(buf, binary.BigEndian, uint32(len(c.Value))); err != nil {
+	if _, err := b.WriteTo(buf); err != nil {
 		return 0, err
 	}
-	if err := binary.Write(buf, binary.BigEndian, c.Key); err != nil {
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, c.Value); err != nil {
-		return 0, err
-	}
+
 	n, err := w.Write(buf.Bytes()[:c.size])
 	return int64(n), err
+}
+
+func (c *Cell) GoString() string {
+	return fmt.Sprintf("%#v", *c)
+}
+
+type Payload struct {
+	_struct bool   `codec:",uint"`
+	Key     Values `codec:"1,omitempty"`
+	Value   Values `codec:"2,omitempty"`
+	Left    PageNo `codec:"3,omitempty"`
 }

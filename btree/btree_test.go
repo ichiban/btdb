@@ -26,18 +26,18 @@ func TestBTree_Insert(t *testing.T) {
 	p.Type = Leaf
 	assert.NoError(b.Create(p))
 
-	assert.NoError(b.Insert([]byte("x"), []byte("1")))
-	v, err := b.Search([]byte("x"))
+	assert.NoError(b.Insert(Values{"x"}, Values{1}))
+	v, err := b.Search(Values{"x"})
 	assert.NoError(err)
-	assert.Equal([]byte("1"), v)
+	assert.Equal(Values{uint64(1)}, v)
 
-	assert.NoError(b.Insert([]byte("y"), []byte("2")))
-	v, err = b.Search([]byte("y"))
+	assert.NoError(b.Insert(Values{"y"}, Values{2}))
+	v, err = b.Search(Values{"y"})
 	assert.NoError(err)
-	assert.Equal([]byte("2"), v)
+	assert.Equal(Values{uint64(2)}, v)
 
 	// duplicate key
-	assert.Error(b.Insert([]byte("x"), []byte("2")))
+	assert.Error(b.Insert(Values{"x"}, Values{2}))
 }
 
 func TestBTree_Delete(t *testing.T) {
@@ -58,12 +58,12 @@ func TestBTree_Delete(t *testing.T) {
 	p.Type = Leaf
 	assert.NoError(b.Create(p))
 
-	assert.NoError(b.Insert([]byte("x"), []byte("1")))
-	v, err := b.Search([]byte("x"))
+	assert.NoError(b.Insert(Values{"x"}, Values{1}))
+	v, err := b.Search(Values{"x"})
 	assert.NoError(err)
-	assert.Equal([]byte("1"), v)
+	assert.Equal(Values{uint64(1)}, v)
 
-	assert.NoError(b.Delete([]byte("x")))
-	_, err = b.Search([]byte("x"))
+	assert.NoError(b.Delete(Values{"x"}))
+	_, err = b.Search(Values{"x"})
 	assert.Error(err)
 }

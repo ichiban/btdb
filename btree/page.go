@@ -135,9 +135,9 @@ var ErrDuplicateKey = errors.New("duplicate key")
 
 func (p *Page) Insert(c *Cell) error {
 	i := sort.Search(len(p.Cells), func(i int) bool {
-		return bytes.Compare(c.Key, p.Cells[i].Key) >= 0
+		return c.Key.Compare(p.Cells[i].Key) >= 0
 	})
-	if len(p.Cells) > 0 && i < len(p.Cells) && bytes.Equal(p.Cells[i].Key, c.Key) {
+	if len(p.Cells) > 0 && i < len(p.Cells) && p.Cells[i].Key.Compare(c.Key) == 0 {
 		return ErrDuplicateKey
 	}
 	p.Cells = p.Cells[:len(p.Cells)+1]
@@ -150,23 +150,23 @@ func (p *Page) Full() bool {
 	return len(p.Cells) == cap(p.Cells)
 }
 
-func (p *Page) Contains(key []byte) bool {
+func (p *Page) Contains(key Values) bool {
 	if len(p.Cells) == 0 {
 		return false
 	}
 
 	i := sort.Search(len(p.Cells), func(i int) bool {
-		return bytes.Compare(key, p.Cells[i].Key) >= 0
+		return key.Compare(p.Cells[i].Key) >= 0
 	})
 
-	return i < len(p.Cells) && bytes.Equal(key, p.Cells[0].Key)
+	return i < len(p.Cells) && key.Compare(p.Cells[0].Key) == 0
 }
 
-func (p *Page) Delete(key []byte) error {
+func (p *Page) Delete(key Values) error {
 	i := sort.Search(len(p.Cells), func(i int) bool {
-		return bytes.Compare(key, p.Cells[i].Key) >= 0
+		return key.Compare(p.Cells[i].Key) >= 0
 	})
-	if len(p.Cells) == 0 || i >= len(p.Cells) || !bytes.Equal(p.Cells[i].Key, key) {
+	if len(p.Cells) == 0 || i >= len(p.Cells) || p.Cells[i].Key.Compare(key) != 0 {
 		return ErrNotFound
 	}
 	p.Cells = p.Cells[:i+copy(p.Cells[i:], p.Cells[i+1:])]
