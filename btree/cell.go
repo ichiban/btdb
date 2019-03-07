@@ -21,12 +21,6 @@ type Cell struct {
 
 const CellHeaderSize = 4 + 4 // Overflow + Payload Size
 
-func NewCell(size int) *Cell {
-	return &Cell{
-		size: size,
-	}
-}
-
 func (c *Cell) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.BigEndian, &c.Overflow); err != nil {
 		return 0, errors.Wrap(err, "failed to read cell overflow")
@@ -36,10 +30,12 @@ func (c *Cell) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.BigEndian, &size); err != nil {
 		return 0, errors.Wrap(err, "failed to read key size")
 	}
+
 	b := bytes.NewBuffer(make([]byte, 0, size))
 	if _, err := io.CopyN(b, r, int64(size)); err != nil {
 		return 0, err
 	}
+
 	d := codec.NewDecoder(b, &handle)
 	if err := d.Decode(&c.Payload); err != nil {
 		return 0, err
@@ -75,13 +71,17 @@ func (c *Cell) WriteTo(w io.Writer) (int64, error) {
 	return int64(n), err
 }
 
-func (c *Cell) GoString() string {
-	return fmt.Sprintf("%#v", *c)
+func (c Cell) GoString() string {
+	if c.Value == nil {
+		return fmt.Sprintf("%#v->%d", c.Key, c.Right)
+	} else {
+		return fmt.Sprintf("%#v:%#v", c.Key, c.Value)
+	}
 }
 
 type Payload struct {
 	_struct bool   `codec:",uint"`
 	Key     Values `codec:"1,omitempty"`
 	Value   Values `codec:"2,omitempty"`
-	Left    PageNo `codec:"3,omitempty"`
+	Right   PageNo `codec:"3,omitempty"`
 }

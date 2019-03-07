@@ -94,7 +94,7 @@ func (t *BTree) searchLeaf(key Values, p *Page) (*Page, error) {
 	case Branch:
 		for _, c := range p.Cells {
 			if key.Compare(c.Key) <= 0 {
-				q, err := t.Get(c.Left)
+				q, err := t.Get(c.Right)
 				if err != nil {
 					return nil, err
 				}
@@ -105,7 +105,7 @@ func (t *BTree) searchLeaf(key Values, p *Page) (*Page, error) {
 				return l, nil
 			}
 		}
-		q, err := t.Get(p.Next)
+		q, err := t.Get(p.Left)
 		if err != nil {
 			return nil, err
 		}
@@ -119,114 +119,88 @@ func (t *BTree) searchLeaf(key Values, p *Page) (*Page, error) {
 	}
 }
 
-func (t *BTree) Insert(key, value Values) error {
-	p, err := t.Get(0)
+func (t *BTree) Insert(root PageNo, key, value Values) (PageNo, error) {
+	p, err := t.Get(root)
 	if err != nil {
-		return errors.Wrap(err, "failed to Get root page")
+		return 0, errors.Wrap(err, "failed to Get root page")
 	}
 
-	c := NewCell(int(t.CellSize))
-	c.Key = key
-	c.Value = value
-
-	m, err := t.insert(p, c)
+	m, err := t.insert(p, &Cell{Payload: Payload{Key: key, Value: value}})
 	if err != nil {
-		return errors.Wrap(err, "failed to insert")
+		return 0, errors.Wrap(err, "failed to insert")
 	}
+
 	if m != nil {
-		// needs a root page
-		p := NewPage(int(t.PageSize), int(t.CellSize))
-		p.Type = Branch
-		p.Cells = p.Cells[:1]
-		p.Cells[0] = m
-		if err := t.Create(p); err != nil {
-			return errors.Wrap(err, "failed to create root page")
+		r := NewPage(int(t.PageSize), int(t.CellSize))
+		r.Type = Branch
+		r.Left = root
+		r.Cells = r.Cells[:1]
+		r.Cells[0] = *m
+		if err := t.Create(r); err != nil {
+			return 0, errors.Wrap(err, "failed to create new root")
 		}
-	}
-	return nil
-}
-
-func (t *BTree) split(p *Page) (*Page, *Cell, *Page, error) {
-	i := len(p.Cells) / 2
-	key := p.Cells[i].Key
-
-	left := NewPage(int(t.PageSize), int(t.CellSize))
-	left.Type = p.Type
-	left.Next = p.PageNo
-	left.Cells.Set(p.Cells[:i])
-	if err := t.Create(left); err != nil {
-		return nil, nil, nil, err
+		p = r
 	}
 
-	right := p
-	right.Prev = left.PageNo
-	right.Cells.Set(p.Cells[i:])
-	if err := t.Update(right); err != nil {
-		return nil, nil, nil, err
-	}
-
-	c := NewCell(int(t.CellSize))
-	c.Key = key
-	c.Left = left.PageNo
-
-	return left, c, right, nil
+	return p.PageNo, nil
 }
 
 func (t *BTree) insert(p *Page, c *Cell) (*Cell, error) {
-	var middle *Cell
-	if p.Full() {
-		l, m, r, err := t.split(p)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to split")
-		}
-		switch {
-		case l.Contains(c.Key):
-			p = l
-		case r.Contains(c.Key):
-			p = r
-		}
-		middle = m
-	}
 	switch p.Type {
 	case Leaf:
-		if err := p.Insert(c); err != nil {
-			return nil, errors.Wrap(err, "failed to insert")
+		if !p.WillOverflow() {
+			if err := p.Insert(c); err != nil {
+				return nil, errors.Wrap(err, "failed to insert")
+			}
+			if err := t.Update(p); err != nil {
+				return nil, errors.Wrap(err, "failed to update")
+			}
+			return nil, nil
 		}
+
+		r, err := p.InsertSplit(c)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to insert and split")
+		}
+		if err := t.Create(r); err != nil {
+			return nil, errors.Wrap(err, "failed to create right")
+		}
+		p.Next = r.PageNo
 		if err := t.Update(p); err != nil {
 			return nil, errors.Wrap(err, "failed to update")
 		}
-		return middle, nil
+		return &Cell{Payload: Payload{Key: r.Cells[0].Key, Right: r.PageNo}}, nil
 	case Branch:
-		m, err := t.insert(p, c)
+		n, err := t.Get(p.child(c.Key))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get child")
+		}
+		m, err := t.insert(n, c)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to insert")
 		}
-		if m != nil {
+		if m == nil {
+			return nil, nil
+		}
+
+		if !p.WillOverflow() {
 			if err := p.Insert(m); err != nil {
 				return nil, errors.Wrap(err, "failed to insert")
 			}
 			if err := t.Update(p); err != nil {
 				return nil, errors.Wrap(err, "failed to update")
 			}
+			return nil, nil
 		}
-		return middle, nil
+		r, k, err := p.InsertSplitMiddle(m)
+		if err := t.Create(r); err != nil {
+			return nil, errors.Wrap(err, "failed to create right")
+		}
+		if err := t.Update(p); err != nil {
+			return nil, errors.Wrap(err, "failed to update")
+		}
+		return &Cell{Payload: Payload{Key: k, Right: r.PageNo}}, nil
 	default:
 		return nil, fmt.Errorf("invalid page type: %s", p.Type)
 	}
-}
-
-// TODO: merge and redistribute
-func (t *BTree) Delete(key Values) error {
-	root, err := t.Get(0)
-	if err != nil {
-		return err
-	}
-	l, err := t.searchLeaf(key, root)
-	if err != nil {
-		return err
-	}
-	if err := l.Delete(key); err != nil {
-		return err
-	}
-	return t.Update(l)
 }

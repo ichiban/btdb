@@ -70,7 +70,7 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.Equal(int64(128), n)
 
 		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Next)
+		assert.Equal(PageNo(0), p.Left)
 		assert.Len(p.Cells, 0)
 	})
 
@@ -126,7 +126,7 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.Equal(int64(128), n)
 
 		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Next)
+		assert.Equal(PageNo(0), p.Left)
 		assert.Len(p.Cells, 1)
 		//		assert.Equal(PageNo(0), p.Cells[0].Overflow)
 	})
@@ -183,7 +183,7 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.Equal(int64(128), n)
 
 		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Next)
+		assert.Equal(PageNo(0), p.Left)
 		assert.Len(p.Cells, 3)
 	})
 }
@@ -218,9 +218,9 @@ func TestPage_WriteTo(t *testing.T) {
 
 		p := NewPage(32, 16)
 		p.Type = Branch
-		p.Cells.Set([]*Cell{
-			NewCell(16),
-		})
+		p.Cells = []Cell{
+			{size: 16},
+		}
 
 		var w bytes.Buffer
 		n, err := p.WriteTo(&w)
@@ -239,4 +239,44 @@ func TestPage_WriteTo(t *testing.T) {
 			0x00, 0x00, 0x00, 0x00,
 		}, w.Bytes())
 	})
+}
+
+func TestPage_Insert(t *testing.T) {
+	assert := assert.New(t)
+
+	p := NewPage(128, 32)
+
+	c1 := Cell{
+		Payload: Payload{
+			Key:   Values{1},
+			Value: Values{"a"},
+		},
+	}
+	c2 := Cell{
+		Payload: Payload{
+			Key:   Values{2},
+			Value: Values{"b"},
+		},
+	}
+	c3 := Cell{
+		Payload: Payload{
+			Key:   Values{3},
+			Value: Values{"c"},
+		},
+	}
+
+	assert.NoError(p.Insert(&c1))
+	assert.Len(p.Cells, 1)
+	assert.Equal(c1, p.Cells[0])
+
+	assert.NoError(p.Insert(&c3))
+	assert.Len(p.Cells, 2)
+	assert.Equal(c1, p.Cells[0])
+	assert.Equal(c3, p.Cells[1])
+
+	assert.NoError(p.Insert(&c2))
+	assert.Len(p.Cells, 3)
+	assert.Equal(c1, p.Cells[0])
+	assert.Equal(c2, p.Cells[1])
+	assert.Equal(c3, p.Cells[2])
 }

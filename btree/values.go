@@ -1,6 +1,9 @@
 package btree
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 )
@@ -18,29 +21,55 @@ func (v Values) Compare(o Values) int {
 	for i := range v {
 		switch v := v[i].(type) {
 		case int:
-			o, ok := o[i].(int)
-			if !ok {
-				panic(ErrNotComparable)
+			var w int
+			switch o := o[i].(type) {
+			case int:
+				w = o
+			case uint64:
+				w = int(o)
+			default:
+				panic(fmt.Errorf("not comparable: index=%d, left=%T, right=%T", i, v, o))
 			}
-			if d := v - o; d != 0 {
+			if d := v - w; d != 0 {
 				return d
 			}
+		case uint64:
+			var w uint64
+			switch o := o[i].(type) {
+			case int:
+				w = uint64(o)
+			case uint64:
+				w = o
+			default:
+				panic(fmt.Errorf("not comparable: index=%d, left=%T, right=%T", i, v, o))
+			}
+			if d := v - w; d != 0 {
+				return int(d)
+			}
 		case string:
-			o, ok := o[i].(string)
+			w, ok := o[i].(string)
 			if !ok {
-				panic(ErrNotComparable)
+				panic(fmt.Errorf("not comparable: index=%d, left=%T, right=%T", i, v, o[i]))
 			}
 			switch {
-			case v < o:
+			case v < w:
 				return -1
-			case v == o:
+			case v == w:
 				return 0
-			case v > o:
+			case v > w:
 				return 1
 			}
 		default:
-			panic(ErrNotComparable)
+			panic(fmt.Errorf("not comparable: index=%d, left=%T, right=%T", i, v, o[i]))
 		}
 	}
 	return 0
+}
+
+func (v Values) GoString() string {
+	ret := make([]string, len(v))
+	for i, v := range v {
+		ret[i] = fmt.Sprintf("%#v", v)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(ret, ", "))
 }

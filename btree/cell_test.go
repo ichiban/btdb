@@ -13,7 +13,7 @@ func TestCell_ReadFrom(t *testing.T) {
 
 		r := bytes.NewReader([]byte{})
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		_, err := c.ReadFrom(r)
 		assert.Error(err)
 	})
@@ -33,13 +33,13 @@ func TestCell_ReadFrom(t *testing.T) {
 			0x00, 0x00, 0x00, 0x00,
 		})
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		n, err := c.ReadFrom(r)
 		assert.NoError(err)
 		assert.Equal(int64(32), n)
 
 		assert.Equal(PageNo(0), c.Overflow)
-		assert.Equal(PageNo(0), c.Left)
+		assert.Equal(PageNo(0), c.Right)
 		assert.Nil(c.Key)
 		assert.Nil(c.Value)
 	})
@@ -59,14 +59,14 @@ func TestCell_ReadFrom(t *testing.T) {
 			0x00, 0x00, 0x00, 0x00,
 		})
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		c.Key = Values{int(0)} // type hint
 		n, err := c.ReadFrom(r)
 		assert.NoError(err)
 		assert.Equal(int64(32), n)
 
 		assert.Equal(PageNo(0), c.Overflow)
-		assert.Equal(PageNo(0), c.Left)
+		assert.Equal(PageNo(0), c.Right)
 		assert.Equal(Values{1}, c.Key)
 		assert.Nil(c.Value)
 	})
@@ -86,7 +86,7 @@ func TestCell_ReadFrom(t *testing.T) {
 			0x00, 0x00, 0x00, 0x00,
 		})
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		c.Key = Values{int(0), int(0)}   // type hint
 		c.Value = Values{int(0), int(0)} // type hint
 		n, err := c.ReadFrom(r)
@@ -94,7 +94,7 @@ func TestCell_ReadFrom(t *testing.T) {
 		assert.Equal(int64(32), n)
 
 		assert.Equal(PageNo(1), c.Overflow)
-		assert.Equal(PageNo(1), c.Left)
+		assert.Equal(PageNo(1), c.Right)
 		assert.Equal(Values{1, 2}, c.Key)
 		assert.Equal(Values{3, 4}, c.Value)
 	})
@@ -104,7 +104,7 @@ func TestCell_WriteTo(t *testing.T) {
 	t.Run("zero length", func(t *testing.T) {
 		assert := assert.New(t)
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 
 		var w bytes.Buffer
 		n, err := c.WriteTo(&w)
@@ -127,7 +127,7 @@ func TestCell_WriteTo(t *testing.T) {
 	t.Run("some", func(t *testing.T) {
 		assert := assert.New(t)
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		c.Key = Values{1}
 
 		var w bytes.Buffer
@@ -151,9 +151,9 @@ func TestCell_WriteTo(t *testing.T) {
 	t.Run("overflow", func(t *testing.T) {
 		assert := assert.New(t)
 
-		c := NewCell(32)
+		c := Cell{size: 32}
 		c.Overflow = 1
-		c.Left = 1
+		c.Right = 1
 		c.Key = Values{1, 2}
 		c.Value = Values{3, 4}
 

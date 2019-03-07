@@ -3,9 +3,11 @@ package btree
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -37,25 +39,24 @@ func (t PageType) String() string {
 }
 
 type Page struct {
-	size int
+	size     int
+	cellSize int
 
 	PageNo PageNo
 	Type   PageType
+	Next   PageNo
 	Prev   PageNo
-	Next   PageNo // rightmost pointer in Branch page. next in Leaf/Overflow page.
-	Cells  Cells
+	Left   PageNo // leftmost pointer in Branch page
+	Cells  []Cell
 }
 
 const PageHeaderSize = 1 + 3 + 4 + 4 + 4
 
 func NewPage(size, cellSize int) *Page {
-	cells := make([]*Cell, (size-PageHeaderSize)/cellSize)
-	for i := range cells {
-		cells[i] = NewCell(cellSize)
-	}
 	return &Page{
-		size:  size,
-		Cells: cells[:0],
+		size:     size,
+		cellSize: cellSize,
+		Cells:    make([]Cell, 0, (size-PageHeaderSize)/cellSize),
 	}
 }
 
@@ -79,7 +80,7 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to read prev page no")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &p.Left); err != nil {
 		return 0, errors.Wrap(err, "failed to read next page no")
 	}
 
@@ -90,6 +91,7 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 
 	p.Cells = p.Cells[:size]
 	for i := range p.Cells {
+		p.Cells[i].size = p.cellSize
 		if _, err := p.Cells[i].ReadFrom(buf); err != nil {
 			return 0, errors.Wrapf(err, "failed to read cell: %d", i)
 		}
@@ -109,11 +111,11 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Next); err != nil {
+	if _, err := buf.Write(make([]byte, 4)); err != nil {
 		return 0, err
 	}
 
-	if _, err := buf.Write(make([]byte, 4)); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.Left); err != nil {
 		return 0, err
 	}
 
@@ -122,6 +124,7 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 	}
 
 	for _, c := range p.Cells {
+		c.size = p.cellSize
 		if _, err := c.WriteTo(buf); err != nil {
 			return 0, err
 		}
@@ -135,19 +138,19 @@ var ErrDuplicateKey = errors.New("duplicate key")
 
 func (p *Page) Insert(c *Cell) error {
 	i := sort.Search(len(p.Cells), func(i int) bool {
-		return c.Key.Compare(p.Cells[i].Key) >= 0
+		return p.Cells[i].Key.Compare(c.Key) >= 0
 	})
 	if len(p.Cells) > 0 && i < len(p.Cells) && p.Cells[i].Key.Compare(c.Key) == 0 {
 		return ErrDuplicateKey
 	}
 	p.Cells = p.Cells[:len(p.Cells)+1]
 	copy(p.Cells[i+1:], p.Cells[i:])
-	p.Cells[i] = c
+	p.Cells[i] = *c
 	return nil
 }
 
-func (p *Page) Full() bool {
-	return len(p.Cells) == cap(p.Cells)
+func (p *Page) WillOverflow() bool {
+	return len(p.Cells)+1 > cap(p.Cells)
 }
 
 func (p *Page) Contains(key Values) bool {
@@ -173,9 +176,76 @@ func (p *Page) Delete(key Values) error {
 	return nil
 }
 
-type Cells []*Cell
+func (p *Page) InsertSplit(c *Cell) (*Page, error) {
+	cells := make([]Cell, len(p.Cells)+1)
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return c.Key.Compare(p.Cells[i].Key) <= 0
+	})
+	if i < len(p.Cells) && c.Key.Compare(p.Cells[i].Key) == 0 {
+		return nil, ErrDuplicateKey
+	}
+	copy(cells[:i], p.Cells[:i])
+	cells[i] = *c
+	copy(cells[i+1:], p.Cells[i:])
 
-func (c *Cells) Set(s []*Cell) {
-	*c = (*c)[:len(s)]
-	copy(*c, s)
+	m := len(cells) / 2
+
+	p.Cells = p.Cells[:m]
+	copy(p.Cells, cells[:m])
+
+	r := NewPage(p.size, p.cellSize)
+	r.Type = p.Type
+	r.Cells = r.Cells[:m]
+	copy(r.Cells, cells[m:])
+
+	return r, nil
+}
+
+func (p *Page) InsertSplitMiddle(c *Cell) (*Page, Values, error) {
+	cells := make([]Cell, len(p.Cells)+1)
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return c.Key.Compare(p.Cells[i].Key) <= 0
+	})
+	if i < len(p.Cells) && c.Key.Compare(p.Cells[i].Key) == 0 {
+		return nil, nil, ErrDuplicateKey
+	}
+	copy(cells[:i], p.Cells[:i])
+	cells[i] = *c
+	copy(cells[i+1:], p.Cells[i:])
+
+	m := len(cells) / 2
+
+	p.Cells = p.Cells[:m]
+	copy(p.Cells, cells[:m])
+
+	r := NewPage(p.size, p.cellSize)
+	r.Type = p.Type
+	r.Left = cells[m].Right
+	r.Cells = r.Cells[:m-1]
+	copy(r.Cells, cells[m+1:])
+
+	return r, cells[m].Key, nil
+}
+
+func (p *Page) GoString() string {
+	ret := make([]string, len(p.Cells))
+	for i, c := range p.Cells {
+		ret[i] = fmt.Sprintf("%#v", c)
+	}
+	if p.Type == Leaf {
+		return fmt.Sprintf("(%d)%s{%s}", p.PageNo, p.Type, strings.Join(ret, ", "))
+	} else {
+		return fmt.Sprintf("(%d)%s{%s}->%d", p.PageNo, p.Type, strings.Join(ret, ", "), p.Left)
+	}
+}
+
+func (p *Page) child(key Values) PageNo {
+	i := sort.Search(len(p.Cells), func(i int) bool {
+		return key.Compare(p.Cells[i].Key) < 0
+	})
+	i -= 1
+	if i < 0 {
+		return p.Left
+	}
+	return p.Cells[i].Right
 }
