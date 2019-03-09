@@ -45,7 +45,6 @@ type Page struct {
 	PageNo PageNo
 	Type   PageType
 	Next   PageNo
-	Prev   PageNo
 	Left   PageNo // leftmost pointer in Branch page
 	Cells  []Cell
 }
@@ -76,8 +75,8 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to skip 3 bytes")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Prev); err != nil {
-		return 0, errors.Wrap(err, "failed to read prev page no")
+	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
+		return 0, errors.Wrap(err, "failed to read next page no")
 	}
 
 	if err := binary.Read(buf, binary.BigEndian, &p.Left); err != nil {
@@ -111,7 +110,7 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	if _, err := buf.Write(make([]byte, 4)); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.Next); err != nil {
 		return 0, err
 	}
 
