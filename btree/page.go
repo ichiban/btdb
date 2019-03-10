@@ -45,6 +45,7 @@ type Page struct {
 	PageNo PageNo
 	Type   PageType
 	Next   PageNo
+	Prev   PageNo
 	Left   PageNo // leftmost pointer in Branch page
 	Cells  []Cell
 }
@@ -71,21 +72,25 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to read page type")
 	}
 
-	if _, err := io.CopyN(ioutil.Discard, buf, 3); err != nil {
-		return 0, errors.Wrap(err, "failed to skip 3 bytes")
+	if _, err := io.CopyN(ioutil.Discard, buf, 1); err != nil {
+		return 0, errors.Wrap(err, "failed to skip 1 byte")
+	}
+
+	var size uint16
+	if err := binary.Read(buf, binary.BigEndian, &size); err != nil {
+		return 0, errors.Wrap(err, "failed to read size")
 	}
 
 	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
 		return 0, errors.Wrap(err, "failed to read next page no")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Left); err != nil {
-		return 0, errors.Wrap(err, "failed to read next page no")
+	if err := binary.Read(buf, binary.BigEndian, &p.Prev); err != nil {
+		return 0, errors.Wrap(err, "failed to read prev page no")
 	}
 
-	var size uint32
-	if err := binary.Read(buf, binary.BigEndian, &size); err != nil {
-		return 0, errors.Wrap(err, "failed to read size")
+	if err := binary.Read(buf, binary.BigEndian, &p.Left); err != nil {
+		return 0, errors.Wrap(err, "failed to read left page no")
 	}
 
 	p.Cells = p.Cells[:size]
@@ -106,7 +111,11 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	if _, err := buf.Write(make([]byte, 3)); err != nil {
+	if _, err := buf.Write(make([]byte, 1)); err != nil {
+		return 0, err
+	}
+
+	if err := binary.Write(buf, binary.BigEndian, uint16(len(p.Cells))); err != nil {
 		return 0, err
 	}
 
@@ -114,11 +123,11 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Left); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.Prev); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, uint32(len(p.Cells))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.Left); err != nil {
 		return 0, err
 	}
 
