@@ -1,1 +1,1 @@
-package btdb
+package main

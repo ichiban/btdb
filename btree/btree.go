@@ -1,22 +1,129 @@
 package btree
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"sort"
 
 	"github.com/pkg/errors"
 )
 
-type BTree struct {
-	File io.ReadWriteSeeker
-
-	PageSize uint32
-	CellSize uint32
-}
-
 var ErrNotFound = errors.New("not found")
 var ErrWrongSize = errors.New("wrong size")
+
+type BTree struct {
+	header
+	file io.ReadWriteSeeker
+}
+
+// follows PNG file signature http://www.libpng.org/pub/png/spec/1.2/PNG-Rationale.html#R.PNG-file-signature
+var validSignature = [8]byte{
+	0x89, // non-ascii
+	byte('1'),
+	byte('D'),
+	byte('B'),
+	byte('\r'), // CR
+	byte('\n'), // LF
+	0x26,       // ctrl-Z
+	byte('\n'), // LF
+}
+
+const headerSize = 8 + 4 + 4
+
+var defaultHeader = header{
+	Signature: validSignature,
+	PageSize:  4096,
+	CellSize:  256,
+}
+
+type header struct {
+	Signature [8]byte
+	PageSize  uint32
+	CellSize  uint32
+}
+
+func (h *header) validate() error {
+	for i, b := range h.Signature {
+		if b != validSignature[i] {
+			return errors.New("invalid signature")
+		}
+	}
+	return nil
+}
+
+func (h *header) ReadFrom(r io.Reader) (int64, error) {
+	if err := binary.Read(r, binary.BigEndian, h); err != nil {
+		return 0, err
+	}
+	if err := h.validate(); err != nil {
+		return 0, err
+	}
+	if _, err := io.CopyN(ioutil.Discard, r, int64(h.PageSize)-headerSize); err != nil {
+		return 0, err
+	}
+	return int64(h.PageSize), nil
+}
+
+func (h *header) WriteTo(w io.Writer) (int64, error) {
+	if err := binary.Write(w, binary.BigEndian, h); err != nil {
+		return 0, err
+	}
+	if err := binary.Write(w, binary.BigEndian, make([]byte, h.PageSize-headerSize)); err != nil {
+		return 0, err
+	}
+	return int64(h.PageSize), nil
+}
+
+func Create(name string, opts ...createOption) (*BTree, error) {
+	f, err := os.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	b := BTree{
+		header: defaultHeader,
+		file:   f,
+	}
+	for _, o := range opts {
+		o(&b)
+	}
+	if _, err := b.header.WriteTo(f); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+type createOption func(*BTree)
+
+func PageSize(size uint32) createOption {
+	return func(b *BTree) {
+		b.PageSize = size
+	}
+}
+
+func CellSize(size uint32) createOption {
+	return func(b *BTree) {
+		b.CellSize = size
+	}
+}
+
+func Open(name string) (*BTree, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	var h header
+	if _, err := h.ReadFrom(f); err != nil {
+		return nil, err
+	}
+	b := BTree{
+		header: h,
+		file:   f,
+	}
+	return &b, nil
+}
 
 func (b *BTree) Iterator(root PageNo, key Values) *Iterator {
 	p, err := b.get(root)
@@ -69,10 +176,10 @@ func (b *BTree) get(i PageNo) (*Page, error) {
 	}
 	p := NewPage(int(b.PageSize), int(b.CellSize))
 	p.PageNo = i
-	if _, err := b.File.Seek(int64(uint32(i-1)*b.PageSize), io.SeekStart); err != nil {
+	if _, err := b.file.Seek(int64(uint32(i)*b.PageSize), io.SeekStart); err != nil {
 		return nil, errors.Wrap(err, "failed to seek start")
 	}
-	n, err := p.ReadFrom(b.File)
+	n, err := p.ReadFrom(b.file)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read page")
 	}
@@ -83,10 +190,10 @@ func (b *BTree) get(i PageNo) (*Page, error) {
 }
 
 func (b *BTree) update(p *Page) error {
-	if _, err := b.File.Seek(int64(uint32(p.PageNo-1)*b.PageSize), io.SeekStart); err != nil {
+	if _, err := b.file.Seek(int64(uint32(p.PageNo)*b.PageSize), io.SeekStart); err != nil {
 		return errors.Wrap(err, "failed to seek start")
 	}
-	n, err := p.WriteTo(b.File)
+	n, err := p.WriteTo(b.file)
 	if err != nil {
 		return errors.Wrap(err, "failed to write page")
 	}
@@ -97,18 +204,18 @@ func (b *BTree) update(p *Page) error {
 }
 
 func (b *BTree) create(p *Page) error {
-	offset, err := b.File.Seek(0, io.SeekEnd)
+	offset, err := b.file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return errors.Wrap(err, "failed to seek end")
 	}
-	n, err := p.WriteTo(b.File)
+	n, err := p.WriteTo(b.file)
 	if err != nil {
 		return errors.Wrap(err, "failed to write page")
 	}
 	if n != int64(b.PageSize) {
 		return ErrWrongSize
 	}
-	p.PageNo = PageNo(offset/int64(b.PageSize)) + 1
+	p.PageNo = PageNo(offset / int64(b.PageSize))
 	return nil
 }
 

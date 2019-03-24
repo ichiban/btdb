@@ -128,7 +128,7 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.Equal(Branch, p.Type)
 		assert.Equal(PageNo(0), p.Left)
 		assert.Len(p.Cells, 1)
-		//		assert.Equal(PageNo(0), p.Cells[0].Overflow)
+		assert.Equal(PageNo(0), p.Cells[0].Overflow)
 	})
 
 	t.Run("multiple cells", func(t *testing.T) {

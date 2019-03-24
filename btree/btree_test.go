@@ -3,21 +3,78 @@ package btree
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBTree_Iterator(t *testing.T) {
-	f, err := ioutil.TempFile("", "test")
-	assert.NoError(t, err)
-	defer assert.NoError(t, os.Remove(f.Name()))
+func TestCreate(t *testing.T) {
+	assert := assert.New(t)
 
-	b := BTree{
-		File:     f,
-		PageSize: 128,
-		CellSize: 32,
-	}
+	dir, err := ioutil.TempDir("", "test")
+	assert.NoError(err)
+	defer func() { assert.NoError(os.RemoveAll(dir)) }()
+
+	_, err = Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+	assert.NoError(err)
+
+	f, err := os.Open(filepath.Join(dir, "test.db"))
+	assert.NoError(err)
+
+	b, err := ioutil.ReadAll(f)
+	assert.NoError(err)
+	assert.Len(b, 128)
+	assert.Equal([]byte{
+		0x89, 0x31, 0x44, 0x42, // signature
+		0x0d, 0x0a, 0x26, 0x0a, // signature (cont)
+		0x00, 0x00, 0x00, 0x80, // page size
+		0x00, 0x00, 0x00, 0x20, // cell size
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	}, b)
+}
+
+func TestBTree_Iterator(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test")
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, os.RemoveAll(dir)) }()
+
+	b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+	assert.NoError(t, err)
 
 	l1 := NewPage(128, 32)
 	l1.Type = Leaf
@@ -159,15 +216,12 @@ func TestBTree_Iterator(t *testing.T) {
 }
 
 func TestBTree_Search(t *testing.T) {
-	f, err := ioutil.TempFile("", "test")
+	dir, err := ioutil.TempDir("", "test")
 	assert.NoError(t, err)
-	defer assert.NoError(t, os.Remove(f.Name()))
+	defer func() { assert.NoError(t, os.RemoveAll(dir)) }()
 
-	b := BTree{
-		File:     f,
-		PageSize: 128,
-		CellSize: 32,
-	}
+	b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+	assert.NoError(t, err)
 
 	l1 := NewPage(128, 32)
 	l1.Type = Leaf
@@ -348,15 +402,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 20", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
@@ -431,15 +482,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 13", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
@@ -526,15 +574,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 15", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
@@ -634,15 +679,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 10", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
@@ -754,15 +796,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 11", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
@@ -887,15 +926,12 @@ func TestBTree_Insert(t *testing.T) {
 	t.Run("insert 12", func(t *testing.T) {
 		assert := assert.New(t)
 
-		f, err := ioutil.TempFile("", "test")
+		dir, err := ioutil.TempDir("", "test")
 		assert.NoError(err)
-		defer assert.NoError(os.Remove(f.Name()))
+		defer func() { assert.NoError(os.RemoveAll(dir)) }()
 
-		b := BTree{
-			File:     f,
-			PageSize: 128,
-			CellSize: 32,
-		}
+		b, err := Create(filepath.Join(dir, "test.db"), PageSize(128), CellSize(32))
+		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
 		l1.Type = Leaf
