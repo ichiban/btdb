@@ -1,4 +1,4 @@
-package btree
+package store
 
 import (
 	"encoding/binary"
@@ -31,7 +31,7 @@ var validSignature = [8]byte{
 	byte('\n'), // LF
 }
 
-const headerSize = 8 + 4 + 4
+const headerSize = 8 + 4 + 4 + 4
 
 var defaultHeader = header{
 	Signature: validSignature,
@@ -43,6 +43,7 @@ type header struct {
 	Signature [8]byte
 	PageSize  uint32
 	CellSize  uint32
+	Root      PageNo
 }
 
 func (h *header) validate() error {
@@ -123,6 +124,16 @@ func Open(name string) (*BTree, error) {
 		file:   f,
 	}
 	return &b, nil
+}
+
+func (b *BTree) UpdateHeader() error {
+	if _, err := b.file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err := b.header.WriteTo(b.file); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *BTree) Iterator(root PageNo, key Values) *Iterator {
@@ -217,6 +228,15 @@ func (b *BTree) create(p *Page) error {
 	}
 	p.PageNo = PageNo(offset / int64(b.PageSize))
 	return nil
+}
+
+func (b *BTree) CreateRoot() (PageNo, error) {
+	r := NewPage(int(b.PageSize), int(b.CellSize))
+	r.Type = Leaf
+	if err := b.create(r); err != nil {
+		return 0, errors.Wrap(err, "failed to create new root")
+	}
+	return r.PageNo, nil
 }
 
 func (b *BTree) Insert(root PageNo, key, value Values) (PageNo, error) {

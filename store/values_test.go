@@ -1,4 +1,4 @@
-package btree
+package store
 
 import (
 	"testing"

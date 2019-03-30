@@ -1,4 +1,4 @@
-package btree
+package store
 
 type Iterator struct {
 	*Cell
