@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -31,7 +32,8 @@ func (l *Lexer) Run() {
 }
 
 func (l *Lexer) Next() token {
-	return <-l.tokens
+	t := <-l.tokens
+	return t
 }
 
 func (l *Lexer) next() (rune, int) {
@@ -68,7 +70,7 @@ func (t token) String() string {
 	if t.val == nil {
 		return fmt.Sprintf("%s", t.typ)
 	}
-	return fmt.Sprintf("'%v'", t.val)
+	return fmt.Sprintf("%s %v", t.typ, t.val)
 }
 
 type tokenType int
@@ -76,8 +78,11 @@ type tokenType int
 // https://jakewheat.github.io/sql-overview/sql-2011-foundation-grammar.html
 
 const (
-	err tokenType = iota
+	eof tokenType = iota
+	errToken
 	identifier
+	unsignedNumeric
+	characterString
 
 	// keywords
 	kwAbs
@@ -413,14 +418,22 @@ const (
 	leftParen
 	rightParen
 	comma
+	plus
+	minus
 )
 
 func (t tokenType) String() string {
 	switch t {
-	case err:
+	case eof:
+		return "<EOF>"
+	case errToken:
 		return "<ERROR>"
 	case identifier:
 		return "<IDENTIFIER>"
+	case unsignedNumeric:
+		return "<UNSIGNED NUMERIC>"
+	case characterString:
+		return "<CHARACTER STRING>"
 	case kwAbs:
 		return "ABS"
 	case kwAll:
@@ -1098,6 +1111,10 @@ func (l *Lexer) start() state {
 		case unicode.IsLetter(r):
 			l.backup()
 			return l.regularIdent(pos)
+		case unicode.IsDigit(r) || r == '.':
+			return l.unsignedNumericLiteral(pos)
+		case r == '\'':
+			return l.characterStringLiteral(pos)
 		case unicode.IsPunct(r):
 			l.backup()
 			return l.specialChar()
@@ -1130,6 +1147,77 @@ func (l *Lexer) regularIdent(start int) state {
 	}
 }
 
+func (l *Lexer) unsignedNumericLiteral(start int) state {
+	return func(r rune, pos int) state {
+		switch {
+		case unicode.IsDigit(r):
+			return l.unsignedNumericLiteral(start)
+		case r == '.':
+			return l.unsignedFloatLiteral(start)
+		default:
+			n, err := strconv.ParseInt(l.input[start:pos], 10, 64)
+			if err != nil {
+				l.emit(token{typ: errToken})
+				return nil
+			}
+			l.backup()
+			l.emit(token{
+				typ: unsignedNumeric,
+				val: n,
+			})
+			return l.start()
+		}
+	}
+}
+
+func (l *Lexer) unsignedFloatLiteral(start int) state {
+	return func(r rune, pos int) state {
+		switch {
+		case unicode.IsDigit(r):
+			return l.unsignedFloatLiteral(start)
+		default:
+			n, err := strconv.ParseFloat(l.input[start:pos], 64)
+			if err != nil {
+				l.emit(token{typ: errToken})
+				return nil
+			}
+			l.backup()
+			l.emit(token{
+				typ: unsignedNumeric,
+				val: n,
+			})
+			return l.start()
+		}
+	}
+}
+
+func (l *Lexer) characterStringLiteral(start int) state {
+	return func(r rune, pos int) state {
+		switch r {
+		case '\'':
+			return l.quoteSymbol(start)
+		default:
+			return l.characterStringLiteral(start)
+		}
+	}
+}
+
+func (l *Lexer) quoteSymbol(start int) state {
+	return func(r rune, pos int) state {
+		switch r {
+		case '\'':
+			return l.characterStringLiteral(start)
+		default:
+			l.backup()
+			l.emit(token{
+				typ: characterString,
+				val: strings.Replace(l.input[start+1:pos-1], `\\`, `\`, -1),
+			})
+			return l.start()
+		}
+	}
+}
+
 func (l *Lexer) specialChar() state {
 	return func(r rune, pos int) state {
 		switch r {
@@ -1148,8 +1236,14 @@ func (l *Lexer) specialChar() state {
 		case ',':
 			l.emit(token{typ: comma})
 			return l.start()
+		case '+':
+			l.emit(token{typ: plus})
+			return l.start()
+		case '-':
+			l.emit(token{typ: minus})
+			return l.start()
 		default:
-			l.emit(token{typ: err})
+			l.emit(token{typ: errToken})
 			return nil
 		}
 	}

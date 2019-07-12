@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -47,10 +48,8 @@ type header struct {
 }
 
 func (h *header) validate() error {
-	for i, b := range h.Signature {
-		if b != validSignature[i] {
-			return errors.New("invalid signature")
-		}
+	if !bytes.Equal(h.Signature[:], validSignature[:]) {
+		return errors.New("invalid signature")
 	}
 	return nil
 }

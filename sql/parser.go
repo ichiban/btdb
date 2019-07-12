@@ -1,11 +1,10 @@
 package sql
 
 import (
-	"errors"
-
 	"golang.org/x/xerrors"
 
 	"github.com/ichiban/btdb/sql/ast"
+	"github.com/ichiban/btdb/store"
 )
 
 type Parser struct {
@@ -35,40 +34,285 @@ func (p *Parser) next() {
 	p.token = p.lex.Next()
 }
 
-func (p *Parser) DirectSQLStatement() (interface{}, error) {
+func notImplemented() (ast.Statement, error) {
+	return nil, xerrors.New("not implemented")
+}
+
+func (p *Parser) DirectSQLStatement() (ast.Statement, error) {
 	stmt, err := p.directlyExecutableStatement()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing directly executable statement: %w", err)
 	}
 	if _, err := p.accept(semicolon); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("while parsing directly executable statement: %w", err)
 	}
 	return stmt, nil
 }
 
-func (p *Parser) directlyExecutableStatement() (interface{}, error) {
-	/*
-		stmt, err := p.directSQLDataStatement()
+func (p *Parser) directlyExecutableStatement() (ast.Statement, error) {
+	switch p.token.typ {
+	case kwInsert, kwUpdate:
+		return p.directSQLDataStatement()
+	case kwCreate:
+		return p.sqlSchemaStatement()
+	default:
+		return nil, xerrors.New("neither direct SQL data statement nor SQL schema statement")
+	}
+}
+
+func (p *Parser) directSQLDataStatement() (ast.Statement, error) {
+	switch p.token.typ {
+	case kwInsert:
+		return p.insertStatement()
+	case kwUpdate:
+		return nil, xerrors.New("not implemented") // TODO
+	default:
+		return nil, xerrors.New("neither insert nor update")
+	}
+}
+
+func (p *Parser) insertStatement() (ast.Statement, error) {
+	if _, err := p.accept(kwInsert); err != nil {
+		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
+	}
+	if _, err := p.accept(kwInto); err != nil {
+		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
+	}
+	name, err := p.insertionTarget()
+	if err != nil {
+		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
+	}
+	source, err := p.insertColumnsAndSource()
+	if err != nil {
+		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
+	}
+	return &ast.InsertStatement{
+		Target: name,
+		Source: source,
+	}, nil
+}
+
+func (p *Parser) insertionTarget() (string, error) {
+	val, err := p.accept(identifier)
+	if err != nil {
+		return "", err
+	}
+	return val.(string), nil
+}
+
+func (p *Parser) insertColumnsAndSource() (ast.Source, error) {
+	if s, err := p.fromDefault(); err == nil {
+		return s, nil
+	}
+	if s, err := p.fromSubquery(); err == nil {
+		return s, nil
+	}
+	return p.fromConstructor()
+}
+
+func (p *Parser) fromSubquery() (ast.Source, error) {
+	return nil, xerrors.New("not implemented") // TODO
+}
+
+func (p *Parser) fromConstructor() (ast.Source, error) {
+	if _, err := p.accept(leftParen); err == nil {
+		_, err := p.insertColumnList()
 		if err != nil {
 			return nil, err
 		}
-	*/
-	stmt, err := p.sqlSchemaStatement()
+		if _, err := p.accept(rightParen); err != nil {
+			return nil, err
+		}
+	}
+
+	v, err := p.contextuallyTypedTableValueConstructor()
 	if err != nil {
 		return nil, err
 	}
-	return stmt, nil
+
+	return v, nil
 }
 
-func (p *Parser) directSQLDataStatement() (interface{}, error) {
-	return nil, xerrors.New("not implemented")
+func (p *Parser) insertColumnList() ([]string, error) {
+	return p.columnNameList()
 }
 
-func (p *Parser) sqlSchemaStatement() (interface{}, error) {
+func (p *Parser) contextuallyTypedTableValueConstructor() (ast.Source, error) {
+	if _, err := p.accept(kwValues); err != nil {
+		return nil, err
+	}
+	return p.contextuallyTypedRowValueExpressionList()
+}
+
+func (p *Parser) contextuallyTypedRowValueExpressionList() (ast.Source, error) {
+	var s ast.FromConstructorSource
+	v, err := p.contextuallyTypedRowValueExpression()
+	if err != nil {
+		return nil, xerrors.Errorf("while parsing the first contextually typed row value expression: %w", err)
+	}
+	s = append(s, v)
+	for {
+		if _, err := p.accept(comma); err != nil {
+			break
+		}
+		v, err := p.contextuallyTypedRowValueExpression()
+		if err != nil {
+			return nil, xerrors.Errorf("while parsing a contextually typed row value expression: %w", err)
+		}
+		s = append(s, v)
+	}
+	return &s, nil
+}
+
+func (p *Parser) contextuallyTypedRowValueExpression() (store.Values, error) {
+	return p.contextuallyTypedRowValueConstructor()
+}
+
+func (p *Parser) contextuallyTypedRowValueConstructor() (store.Values, error) {
+	if _, err := p.accept(leftParen); err != nil {
+		return nil, err
+	}
+	var vs store.Values
+	for {
+		v, err := p.contextuallyTypedRowValueConstructorElement()
+		if err != nil {
+			return nil, err
+		}
+		vs = append(vs, v)
+		if _, err := p.accept(comma); err != nil {
+			break
+		}
+	}
+	if _, err := p.accept(rightParen); err != nil {
+		return nil, err
+	}
+	return vs, nil
+}
+
+func (p *Parser) contextuallyTypedRowValueConstructorElement() (interface{}, error) {
+	return p.valueExpression()
+}
+
+func (p *Parser) valueExpression() (interface{}, error) {
+	return p.commonValueExpression()
+}
+
+func (p *Parser) commonValueExpression() (interface{}, error) {
+	if v, err := p.numericValueExpression(); err == nil {
+		return v, nil
+	}
+	if v, err := p.stringValueExpression(); err == nil {
+		return v, nil
+	}
+	return nil, xerrors.New("non common value expression")
+}
+
+func (p *Parser) numericValueExpression() (interface{}, error) {
+	return p.term()
+}
+
+func (p *Parser) term() (interface{}, error) {
+	return p.factor()
+}
+
+func (p *Parser) factor() (interface{}, error) {
+	_, _ = p.sign() // TODO
+	return p.numericPrimary()
+}
+
+func (p *Parser) sign() (bool, error) {
+	if _, err := p.accept(plus); err == nil {
+		return false, nil
+	}
+	if _, err := p.accept(minus); err == nil {
+		return true, nil
+	}
+	return false, xerrors.New("neither plus nor minus")
+}
+
+func (p *Parser) numericPrimary() (interface{}, error) {
+	return p.valueExpressionPrimary()
+}
+
+func (p *Parser) valueExpressionPrimary() (interface{}, error) {
+	return p.unparenthesizedValueExpressionPrimary()
+}
+
+func (p *Parser) unparenthesizedValueExpressionPrimary() (interface{}, error) {
+	return p.unsignedLiteral()
+}
+
+func (p *Parser) unsignedLiteral() (interface{}, error) {
+	if v, err := p.unsignedNumericLiteral(); err == nil {
+		return v, nil
+	}
+	if v, err := p.generalLiteral(); err == nil {
+		return v, nil
+	}
+	return nil, xerrors.New("non unsigned literal")
+}
+
+func (p *Parser) unsignedNumericLiteral() (interface{}, error) {
+	return p.exactNumericLiteral()
+}
+
+func (p *Parser) exactNumericLiteral() (interface{}, error) {
+	v, err := p.accept(unsignedNumeric)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (p *Parser) generalLiteral() (interface{}, error) {
+	return p.characterStringLiteral()
+}
+
+func (p *Parser) characterStringLiteral() (interface{}, error) {
+	return p.accept(characterString)
+}
+
+func (p *Parser) stringValueExpression() (string, error) {
+	return p.characterValueExpression()
+}
+
+func (p *Parser) characterValueExpression() (string, error) {
+	if v, err := p.characterFactor(); err == nil {
+		return v, nil
+	}
+	return "", xerrors.New("non character value expression")
+}
+
+func (p *Parser) characterFactor() (string, error) {
+	return p.characterPrimary()
+}
+
+func (p *Parser) characterPrimary() (string, error) {
+	if v, err := p.valueExpressionPrimary(); err == nil {
+		s, ok := v.(string)
+		if !ok {
+			return "", xerrors.New("non string value")
+		}
+		return s, nil
+	}
+	return "", xerrors.New("non character primary")
+}
+
+func (p *Parser) fromDefault() (ast.Source, error) {
+	if _, err := p.accept(kwDefault); err != nil {
+		return nil, err
+	}
+	if _, err := p.accept(kwValues); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (p *Parser) sqlSchemaStatement() (ast.Statement, error) {
 	return p.sqlSchemaDefinitionStatement()
 }
 
-func (p *Parser) sqlSchemaDefinitionStatement() (interface{}, error) {
+func (p *Parser) sqlSchemaDefinitionStatement() (ast.Statement, error) {
 	return p.tableDefinition()
 }
 
@@ -77,8 +321,6 @@ func (p *Parser) tableDefinition() (*ast.TableDefinition, error) {
 	if _, err := p.accept(kwCreate); err != nil {
 		return nil, err
 	}
-	scope, _ := p.tableScope()
-	t.Scope = scope
 	if _, err := p.accept(kwTable); err != nil {
 		return nil, err
 	}
@@ -93,27 +335,6 @@ func (p *Parser) tableDefinition() (*ast.TableDefinition, error) {
 	}
 
 	return &t, nil
-}
-
-func (p *Parser) tableScope() (*ast.TableScope, error) {
-	scope, err := p.globalOrLocal()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := p.accept(kwTemporary); err != nil {
-		return nil, err
-	}
-	return &scope, nil
-}
-
-func (p *Parser) globalOrLocal() (ast.TableScope, error) {
-	if _, err := p.accept(kwGlobal); err != nil {
-		return ast.GlobalTableScope, nil
-	}
-	if _, err := p.accept(kwLocal); err != nil {
-		return ast.LocalTableScope, nil
-	}
-	return -1, errors.New("unknown table scope")
 }
 
 func (p *Parser) tableContentsSource(t *ast.TableDefinition) error {

@@ -5,7 +5,6 @@ import (
 )
 
 type TableDefinition struct {
-	Scope      *TableScope
 	Name       string
 	Columns    []ColumnDefinition
 	PrimaryKey []string
@@ -34,13 +33,6 @@ func (t *TableDefinition) Execute(b *store.BTree) error {
 	}
 	return nil
 }
-
-type TableScope int
-
-const (
-	GlobalTableScope TableScope = iota
-	LocalTableScope
-)
 
 type ColumnDefinition struct {
 	Name     string

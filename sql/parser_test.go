@@ -3,6 +3,8 @@ package sql
 import (
 	"testing"
 
+	"github.com/ichiban/btdb/store"
+
 	"github.com/ichiban/btdb/sql/ast"
 
 	"github.com/stretchr/testify/assert"
@@ -21,11 +23,10 @@ create table dept(
   primary key (deptno)  
 );
 `)
-		d, err := p.DirectSQLStatement()
+		s, err := p.DirectSQLStatement()
 		assert.NoError(err)
-		require.IsType(&ast.TableDefinition{}, d)
-		td := d.(*ast.TableDefinition)
-		assert.Nil(td.Scope)
+		require.IsType(&ast.TableDefinition{}, s)
+		td := s.(*ast.TableDefinition)
 		assert.Equal("dept", td.Name)
 		assert.Len(td.Columns, 3)
 		assert.Equal("deptno", td.Columns[0].Name)
@@ -35,5 +36,21 @@ create table dept(
 		assert.Equal("loc", td.Columns[2].Name)
 		assert.Equal(ast.Text, td.Columns[2].DataType)
 		assert.Equal([]string{"deptno"}, td.PrimaryKey)
+	})
+
+	t.Run("insert into dept", func(t *testing.T) {
+		assert := assert.New(t)
+		require := require.New(t)
+		p := NewParser(`
+insert into DEPT (DEPTNO, DNAME, LOC)
+values(10, 'ACCOUNTING', 'NEW YORK');
+`)
+		s, err := p.DirectSQLStatement()
+		assert.NoError(err)
+		require.IsType(&ast.InsertStatement{}, s)
+		is := s.(*ast.InsertStatement)
+		assert.Equal("DEPT", is.Target)
+		assert.Equal(store.Values{int64(10), "ACCOUNTING", "NEW YORK"}, is.Source.Next())
+		assert.Nil(is.Source.Next())
 	})
 }

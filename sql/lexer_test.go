@@ -7,6 +7,15 @@ import (
 )
 
 func TestLexer_Next(t *testing.T) {
+	t.Run("character string literal", func(t *testing.T) {
+		assert := assert.New(t)
+
+		l := NewLexer(`'foo'`)
+		go l.Run()
+
+		assert.Equal(token{typ: characterString, val: "foo"}, l.Next())
+	})
+
 	t.Run("simple select", func(t *testing.T) {
 		assert := assert.New(t)
 
@@ -48,5 +57,35 @@ create table dept(
 		assert.Equal(token{typ: kwText}, l.Next())
 		assert.Equal(token{typ: comma}, l.Next())
 		assert.Equal(token{typ: rightParen}, l.Next())
+	})
+
+	t.Run("simple insert", func(t *testing.T) {
+		assert := assert.New(t)
+
+		l := NewLexer(`
+insert into DEPT (DEPTNO, DNAME, LOC)
+values(10, 'ACCOUNTING', 'NEW YORK');
+`)
+		go l.Run()
+
+		assert.Equal(token{typ: kwInsert}, l.Next())
+		assert.Equal(token{typ: kwInto}, l.Next())
+		assert.Equal(token{typ: identifier, val: "DEPT"}, l.Next())
+		assert.Equal(token{typ: leftParen}, l.Next())
+		assert.Equal(token{typ: identifier, val: "DEPTNO"}, l.Next())
+		assert.Equal(token{typ: comma}, l.Next())
+		assert.Equal(token{typ: identifier, val: "DNAME"}, l.Next())
+		assert.Equal(token{typ: comma}, l.Next())
+		assert.Equal(token{typ: identifier, val: "LOC"}, l.Next())
+		assert.Equal(token{typ: rightParen}, l.Next())
+		assert.Equal(token{typ: kwValues}, l.Next())
+		assert.Equal(token{typ: leftParen}, l.Next())
+		assert.Equal(token{typ: unsignedNumeric, val: int64(10)}, l.Next())
+		assert.Equal(token{typ: comma}, l.Next())
+		assert.Equal(token{typ: characterString, val: "ACCOUNTING"}, l.Next())
+		assert.Equal(token{typ: comma}, l.Next())
+		assert.Equal(token{typ: characterString, val: "NEW YORK"}, l.Next())
+		assert.Equal(token{typ: rightParen}, l.Next())
+		assert.Equal(token{typ: semicolon}, l.Next())
 	})
 }
