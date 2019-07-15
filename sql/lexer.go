@@ -62,8 +62,10 @@ func (l *Lexer) emit(t token) {
 }
 
 type token struct {
-	typ tokenType
-	val interface{}
+	start int
+	end   int
+	typ   tokenType
+	val   interface{}
 }
 
 func (t token) String() string {
@@ -1134,13 +1136,17 @@ func (l *Lexer) regularIdent(start int) state {
 			val := l.input[start:pos]
 			if t, ok := keywords[strings.ToUpper(val)]; ok {
 				l.emit(token{
-					typ: t,
+					start: start,
+					end:   pos,
+					typ:   t,
 				})
 				return l.start()
 			}
 			l.emit(token{
-				typ: identifier,
-				val: val,
+				start: start,
+				end:   pos,
+				typ:   identifier,
+				val:   val,
 			})
 			return l.start()
 		}
@@ -1157,13 +1163,15 @@ func (l *Lexer) unsignedNumericLiteral(start int) state {
 		default:
 			n, err := strconv.ParseInt(l.input[start:pos], 10, 64)
 			if err != nil {
-				l.emit(token{typ: errToken})
+				l.emit(token{start: start, end: pos, typ: errToken})
 				return nil
 			}
 			l.backup()
 			l.emit(token{
-				typ: unsignedNumeric,
-				val: n,
+				start: start,
+				end:   pos,
+				typ:   unsignedNumeric,
+				val:   n,
 			})
 			return l.start()
 		}
@@ -1178,13 +1186,15 @@ func (l *Lexer) unsignedFloatLiteral(start int) state {
 		default:
 			n, err := strconv.ParseFloat(l.input[start:pos], 64)
 			if err != nil {
-				l.emit(token{typ: errToken})
+				l.emit(token{start: start, end: pos, typ: errToken})
 				return nil
 			}
 			l.backup()
 			l.emit(token{
-				typ: unsignedNumeric,
-				val: n,
+				start: start,
+				end:   pos,
+				typ:   unsignedNumeric,
+				val:   n,
 			})
 			return l.start()
 		}
@@ -1210,8 +1220,10 @@ func (l *Lexer) quoteSymbol(start int) state {
 		default:
 			l.backup()
 			l.emit(token{
-				typ: characterString,
-				val: strings.Replace(l.input[start+1:pos-1], `\\`, `\`, -1),
+				start: start,
+				end:   pos,
+				typ:   characterString,
+				val:   strings.Replace(l.input[start+1:pos-1], `\\`, `\`, -1),
 			})
 			return l.start()
 		}
@@ -1222,28 +1234,28 @@ func (l *Lexer) specialChar() state {
 	return func(r rune, pos int) state {
 		switch r {
 		case '*':
-			l.emit(token{typ: asterisk})
+			l.emit(token{start: pos, end: pos + 1, typ: asterisk})
 			return l.start()
 		case ';':
-			l.emit(token{typ: semicolon})
+			l.emit(token{start: pos, end: pos + 1, typ: semicolon})
 			return l.start()
 		case '(':
-			l.emit(token{typ: leftParen})
+			l.emit(token{start: pos, end: pos + 1, typ: leftParen})
 			return l.start()
 		case ')':
-			l.emit(token{typ: rightParen})
+			l.emit(token{start: pos, end: pos + 1, typ: rightParen})
 			return l.start()
 		case ',':
-			l.emit(token{typ: comma})
+			l.emit(token{start: pos, end: pos + 1, typ: comma})
 			return l.start()
 		case '+':
-			l.emit(token{typ: plus})
+			l.emit(token{start: pos, end: pos + 1, typ: plus})
 			return l.start()
 		case '-':
-			l.emit(token{typ: minus})
+			l.emit(token{start: pos, end: pos + 1, typ: minus})
 			return l.start()
 		default:
-			l.emit(token{typ: errToken})
+			l.emit(token{start: pos, end: pos + 1, typ: errToken})
 			return nil
 		}
 	}

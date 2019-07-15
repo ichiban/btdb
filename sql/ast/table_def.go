@@ -5,6 +5,7 @@ import (
 )
 
 type TableDefinition struct {
+	RawSQL     string
 	Name       string
 	Columns    []ColumnDefinition
 	PrimaryKey []string

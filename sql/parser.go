@@ -72,6 +72,13 @@ func (p *Parser) directSQLDataStatement() (ast.Statement, error) {
 }
 
 func (p *Parser) insertStatement() (ast.Statement, error) {
+	var s ast.InsertStatement
+	start := p.token.start
+	defer func() {
+		end := p.token.end
+		s.RawSQL = p.lex.input[start:end]
+	}()
+
 	if _, err := p.accept(kwInsert); err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
@@ -82,14 +89,13 @@ func (p *Parser) insertStatement() (ast.Statement, error) {
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
+	s.Target = name
 	source, err := p.insertColumnsAndSource()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
-	return &ast.InsertStatement{
-		Target: name,
-		Source: source,
-	}, nil
+	s.Source = source
+	return &s, nil
 }
 
 func (p *Parser) insertionTarget() (string, error) {
@@ -318,6 +324,12 @@ func (p *Parser) sqlSchemaDefinitionStatement() (ast.Statement, error) {
 
 func (p *Parser) tableDefinition() (*ast.TableDefinition, error) {
 	var t ast.TableDefinition
+	start := p.token.start
+	defer func() {
+		end := p.token.end
+		t.RawSQL = p.lex.input[start:end]
+	}()
+
 	if _, err := p.accept(kwCreate); err != nil {
 		return nil, err
 	}

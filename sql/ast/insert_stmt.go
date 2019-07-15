@@ -3,6 +3,7 @@ package ast
 import "github.com/ichiban/btdb/store"
 
 type InsertStatement struct {
+	RawSQL string
 	Target string
 	Source Source
 }

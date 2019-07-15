@@ -27,6 +27,12 @@ create table dept(
 		assert.NoError(err)
 		require.IsType(&ast.TableDefinition{}, s)
 		td := s.(*ast.TableDefinition)
+		assert.Equal(`create table dept(  
+  deptno     integer,
+  dname      text,
+  loc        text,
+  primary key (deptno)  
+);`, td.RawSQL)
 		assert.Equal("dept", td.Name)
 		assert.Len(td.Columns, 3)
 		assert.Equal("deptno", td.Columns[0].Name)
@@ -49,6 +55,8 @@ values(10, 'ACCOUNTING', 'NEW YORK');
 		assert.NoError(err)
 		require.IsType(&ast.InsertStatement{}, s)
 		is := s.(*ast.InsertStatement)
+		assert.Equal(`insert into DEPT (DEPTNO, DNAME, LOC)
+values(10, 'ACCOUNTING', 'NEW YORK');`, is.RawSQL)
 		assert.Equal("DEPT", is.Target)
 		assert.Equal(store.Values{int64(10), "ACCOUNTING", "NEW YORK"}, is.Source.Next())
 		assert.Nil(is.Source.Next())
