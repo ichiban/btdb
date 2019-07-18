@@ -1,4 +1,4 @@
-package ast
+package sql
 
 import (
 	"github.com/ichiban/btdb/store"
@@ -13,7 +13,7 @@ type TableDefinition struct {
 }
 
 func (t *TableDefinition) SQL() string {
-	return ""
+	return t.RawSQL
 }
 
 func (t *TableDefinition) Execute(b *store.BTree) error {

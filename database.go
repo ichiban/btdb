@@ -1,46 +1,62 @@
 package btdb
 
 import (
-	"encoding/binary"
-	"errors"
-	"io"
+	"context"
+	"database/sql/driver"
+	"fmt"
+
+	"github.com/ichiban/btdb/sql"
+	"github.com/ichiban/btdb/store"
 )
 
-// TODO: fix signature
-var signature = []byte{0x37, 0x7f, 0x06, 0x81}
-
-var ErrInvalidDatabaseFile = errors.New("invalid database file")
-
 type Database struct {
-	io.ReadWriteSeeker
-	PageSize uint32
+	tree *store.BTree
 }
 
-func NewDatabase(rws io.ReadWriteSeeker) (*Database, error) {
-	head, _ := rws.Seek(0, io.SeekCurrent)
-	defer rws.Seek(head, io.SeekStart)
-
-	if err := checkSignature(rws); err != nil {
+func Create(name string) (*Database, error) {
+	t, err := store.Create(name, store.PageSize(4*1024), store.CellSize(512))
+	if err != nil {
 		return nil, err
 	}
-
-	var db Database
-	if err := binary.Read(rws, binary.BigEndian, db.PageSize); err != nil {
+	r, err := t.CreateRoot()
+	if err != nil {
 		return nil, err
 	}
-
-	return &db, nil
+	t.Root = r
+	if err := t.UpdateHeader(); err != nil {
+		return nil, err
+	}
+	return &Database{
+		tree: t,
+	}, nil
 }
 
-func checkSignature(r io.Reader) error {
-	var sig [4]byte
-	if err := binary.Read(r, binary.BigEndian, &sig); err != nil {
-		return err
+func Open(name string) (*Database, error) {
+	t, err := store.Open(name)
+	if err != nil {
+		return nil, err
 	}
-	for i, b := range sig {
-		if b != signature[i] {
-			return ErrInvalidDatabaseFile
-		}
+	return &Database{
+		tree: t,
+	}, nil
+}
+
+func (d *Database) Close() error {
+	return d.tree.Close()
+}
+
+func (d *Database) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	p := sql.NewParser(query)
+	s, err := p.DirectSQLStatement()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	if err := s.Execute(d.tree); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (d *Database) String() string {
+	return fmt.Sprintf("%+v", d.tree)
 }

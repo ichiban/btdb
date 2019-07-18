@@ -5,8 +5,6 @@ import (
 
 	"github.com/ichiban/btdb/store"
 
-	"github.com/ichiban/btdb/sql/ast"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,8 +23,8 @@ create table dept(
 `)
 		s, err := p.DirectSQLStatement()
 		assert.NoError(err)
-		require.IsType(&ast.TableDefinition{}, s)
-		td := s.(*ast.TableDefinition)
+		require.IsType(&TableDefinition{}, s)
+		td := s.(*TableDefinition)
 		assert.Equal(`create table dept(  
   deptno     integer,
   dname      text,
@@ -36,11 +34,11 @@ create table dept(
 		assert.Equal("dept", td.Name)
 		assert.Len(td.Columns, 3)
 		assert.Equal("deptno", td.Columns[0].Name)
-		assert.Equal(ast.Integer, td.Columns[0].DataType)
+		assert.Equal(Integer, td.Columns[0].DataType)
 		assert.Equal("dname", td.Columns[1].Name)
-		assert.Equal(ast.Text, td.Columns[1].DataType)
+		assert.Equal(Text, td.Columns[1].DataType)
 		assert.Equal("loc", td.Columns[2].Name)
-		assert.Equal(ast.Text, td.Columns[2].DataType)
+		assert.Equal(Text, td.Columns[2].DataType)
 		assert.Equal([]string{"deptno"}, td.PrimaryKey)
 	})
 
@@ -53,8 +51,8 @@ values(10, 'ACCOUNTING', 'NEW YORK');
 `)
 		s, err := p.DirectSQLStatement()
 		assert.NoError(err)
-		require.IsType(&ast.InsertStatement{}, s)
-		is := s.(*ast.InsertStatement)
+		require.IsType(&InsertStatement{}, s)
+		is := s.(*InsertStatement)
 		assert.Equal(`insert into DEPT (DEPTNO, DNAME, LOC)
 values(10, 'ACCOUNTING', 'NEW YORK');`, is.RawSQL)
 		assert.Equal("DEPT", is.Target)

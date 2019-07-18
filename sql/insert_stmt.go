@@ -1,6 +1,8 @@
-package ast
+package sql
 
-import "github.com/ichiban/btdb/store"
+import (
+	"github.com/ichiban/btdb/store"
+)
 
 type InsertStatement struct {
 	RawSQL string
@@ -9,10 +11,19 @@ type InsertStatement struct {
 }
 
 func (i *InsertStatement) SQL() string {
-	return ""
+	return i.RawSQL
 }
 
 func (i *InsertStatement) Execute(b *store.BTree) error {
+	vs, err := b.Search(b.Root, store.Values{"table", i.Target})
+	if err != nil {
+		return err
+	}
+	p := NewParser(vs[1].(string))
+	_, err = p.TableDefinition()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

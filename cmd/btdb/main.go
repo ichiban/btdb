@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/ichiban/btdb/sql"
+	"github.com/ichiban/btdb"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -14,6 +15,18 @@ import (
 )
 
 func main() {
+	filename := os.Args[1]
+	db, err := btdb.Open(filename)
+	if err != nil {
+		db, err = btdb.Create(filename)
+		if err != nil {
+			log.Fatalf("failed to open file: %v", err)
+		}
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
 	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		panic(err)
@@ -38,10 +51,9 @@ func main() {
 		}
 		_, _ = fmt.Fprintf(e, "%s%s\n", e.Prompt, l)
 		e.History.Add(l)
-		p := sql.NewParser(l)
-		_, err = p.DirectSQLStatement()
+		_, err = db.QueryContext(context.Background(), l, nil)
 		if err != nil {
-			_, _ = fmt.Fprintf(e, "syntax error: %v\n", err)
+			_, _ = fmt.Fprintf(e, "error: %v\n", err)
 		}
 	}
 }

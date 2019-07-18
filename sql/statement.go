@@ -1,4 +1,4 @@
-package ast
+package sql
 
 import "github.com/ichiban/btdb/store"
 
