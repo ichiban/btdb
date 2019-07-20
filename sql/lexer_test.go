@@ -14,6 +14,7 @@ func TestLexer_Next(t *testing.T) {
 		go l.Run()
 
 		assert.Equal(token{start: 0, end: 5, typ: characterString, val: "foo"}, l.Next())
+		assert.Equal(token{typ: eos}, l.Next())
 	})
 
 	t.Run("simple select", func(t *testing.T) {
@@ -27,6 +28,7 @@ func TestLexer_Next(t *testing.T) {
 		assert.Equal(token{start: 9, end: 13, typ: kwFrom}, l.Next())
 		assert.Equal(token{start: 14, end: 23, typ: identifier, val: "Customers"}, l.Next())
 		assert.Equal(token{start: 23, end: 24, typ: semicolon}, l.Next())
+		assert.Equal(token{typ: eos}, l.Next())
 	})
 
 	t.Run("create table dept", func(t *testing.T) {
@@ -57,6 +59,7 @@ create table dept(
 		assert.Equal(token{start: 88, end: 92, typ: kwText}, l.Next())
 		assert.Equal(token{start: 92, end: 93, typ: comma}, l.Next())
 		assert.Equal(token{start: 94, end: 95, typ: rightParen}, l.Next())
+		assert.Equal(token{typ: eos}, l.Next())
 	})
 
 	t.Run("simple insert", func(t *testing.T) {
@@ -87,5 +90,6 @@ values(10, 'ACCOUNTING', 'NEW YORK');
 		assert.Equal(token{start: 64, end: 74, typ: characterString, val: "NEW YORK"}, l.Next())
 		assert.Equal(token{start: 74, end: 75, typ: rightParen}, l.Next())
 		assert.Equal(token{start: 75, end: 76, typ: semicolon}, l.Next())
+		assert.Equal(token{typ: eos}, l.Next())
 	})
 }

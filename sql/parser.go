@@ -20,7 +20,12 @@ func NewParser(input string) *Parser {
 	}
 }
 
+var ErrIncomplete = xerrors.New("incomplete statement")
+
 func (p *Parser) accept(typ tokenType) (interface{}, error) {
+	if p.token.typ == eos {
+		return nil, ErrIncomplete
+	}
 	if p.token.typ != typ {
 		return nil, xerrors.Errorf("expected: %s, got: %s", typ, p.token.typ)
 	}
@@ -377,15 +382,24 @@ func (p *Parser) tableElementsList(t *TableDefinition) error {
 }
 
 func (p *Parser) tableElement(t *TableDefinition) error {
-	if col, err := p.columnDefinition(); err == nil {
+	col, err := p.columnDefinition()
+	switch {
+	case xerrors.Is(err, ErrIncomplete):
+		return err
+	case err != nil:
+		err := p.tableConstraintDefinition(t)
+		switch {
+		case xerrors.Is(err, ErrIncomplete):
+			return err
+		case err != nil:
+			return xerrors.New("neither column definition nor table constraint definition")
+		default:
+			return nil
+		}
+	default:
 		t.Columns = append(t.Columns, *col)
 		return nil
 	}
-	if err := p.tableConstraintDefinition(t); err == nil {
-		return nil
-	}
-
-	return xerrors.New("neither column definition nor table constraint definition")
 }
 
 func (p *Parser) columnDefinition() (*ColumnDefinition, error) {

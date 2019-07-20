@@ -37,9 +37,6 @@ func (l *Lexer) Next() token {
 }
 
 func (l *Lexer) next() (rune, int) {
-	if l.pos >= len(l.input) {
-		return 0, l.pos
-	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
 	l.width = w
 	pos := l.pos
@@ -80,7 +77,7 @@ type tokenType int
 // https://jakewheat.github.io/sql-overview/sql-2011-foundation-grammar.html
 
 const (
-	eof tokenType = iota
+	eos tokenType = iota
 	errToken
 	identifier
 	unsignedNumeric
@@ -426,8 +423,8 @@ const (
 
 func (t tokenType) String() string {
 	switch t {
-	case eof:
-		return "<EOF>"
+	case eos:
+		return "<EOS>"
 	case errToken:
 		return "<ERROR>"
 	case identifier:
