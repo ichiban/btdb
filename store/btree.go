@@ -109,7 +109,7 @@ func CellSize(size uint32) createOption {
 }
 
 func Open(name string) (*BTree, error) {
-	f, err := os.Open(name)
+	f, err := os.OpenFile(name, os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}
