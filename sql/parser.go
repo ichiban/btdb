@@ -1,20 +1,22 @@
 package sql
 
 import (
-	"golang.org/x/xerrors"
+	"database/sql/driver"
 
-	"github.com/ichiban/btdb/store"
+	"golang.org/x/xerrors"
 )
 
 type Parser struct {
+	store Store
 	lex   *Lexer
 	token token
 }
 
-func NewParser(input string) *Parser {
+func NewParser(s Store, input string) *Parser {
 	l := NewLexer(input)
 	go l.Run()
 	return &Parser{
+		store: s,
 		lex:   l,
 		token: l.Next(),
 	}
@@ -38,11 +40,7 @@ func (p *Parser) next() {
 	p.token = p.lex.Next()
 }
 
-func notImplemented() (Statement, error) {
-	return nil, xerrors.New("not implemented")
-}
-
-func (p *Parser) DirectSQLStatement() (Statement, error) {
+func (p *Parser) DirectSQLStatement() (driver.Stmt, error) {
 	stmt, err := p.directlyExecutableStatement()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing directly executable statement: %w", err)
@@ -53,9 +51,9 @@ func (p *Parser) DirectSQLStatement() (Statement, error) {
 	return stmt, nil
 }
 
-func (p *Parser) directlyExecutableStatement() (Statement, error) {
+func (p *Parser) directlyExecutableStatement() (driver.Stmt, error) {
 	switch p.token.typ {
-	case kwInsert, kwUpdate:
+	case kwSelect, kwInsert, kwUpdate:
 		return p.directSQLDataStatement()
 	case kwCreate:
 		return p.sqlSchemaStatement()
@@ -64,24 +62,126 @@ func (p *Parser) directlyExecutableStatement() (Statement, error) {
 	}
 }
 
-func (p *Parser) directSQLDataStatement() (Statement, error) {
-	switch p.token.typ {
-	case kwInsert:
-		return p.insertStatement()
-	case kwUpdate:
-		return nil, xerrors.New("not implemented") // TODO
-	default:
-		return nil, xerrors.New("neither insert nor update")
+func (p *Parser) directSQLDataStatement() (driver.Stmt, error) {
+	s, err := p.directSelectStatement()
+	if err != nil {
+		if xerrors.Is(err, ErrIncomplete) {
+			return nil, err
+		}
+		switch p.token.typ {
+		case kwInsert:
+			return p.insertStatement()
+		case kwUpdate:
+			return nil, xerrors.New("not implemented") // TODO
+		default:
+			return nil, xerrors.New("neither insert nor update")
+		}
 	}
+	return s, nil
 }
 
-func (p *Parser) insertStatement() (Statement, error) {
+func (p *Parser) directSelectStatement() (driver.Stmt, error) {
+	return p.cursorSpecification()
+}
+
+func (p *Parser) cursorSpecification() (driver.Stmt, error) {
+	return p.queryExpression()
+}
+
+func (p *Parser) queryExpression() (driver.Stmt, error) {
+	return p.queryExpressionBody()
+}
+
+func (p *Parser) queryExpressionBody() (driver.Stmt, error) {
+	return p.queryTerm()
+}
+
+func (p *Parser) queryTerm() (driver.Stmt, error) {
+	return p.queryPrimary()
+}
+
+func (p *Parser) queryPrimary() (driver.Stmt, error) {
+	return p.simpleTable()
+}
+
+func (p *Parser) simpleTable() (driver.Stmt, error) {
+	return p.querySpecification()
+}
+
+func (p *Parser) querySpecification() (driver.Stmt, error) {
+	if _, err := p.accept(kwSelect); err != nil {
+		return nil, err
+	}
+	if _, err := p.selectList(); err != nil {
+		return nil, err
+	}
+	q, err := p.tableExpression()
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
+}
+
+func (p *Parser) tableExpression() (driver.Stmt, error) {
+	s, err := p.fromClause()
+	if err != nil {
+		return nil, err
+	}
+	return &SelectStatement{From: s}, nil
+}
+
+func (p *Parser) fromClause() (string, error) {
+	if _, err := p.accept(kwFrom); err != nil {
+		return "", err
+	}
+	return p.tableReferenceList()
+}
+
+func (p *Parser) tableReferenceList() (string, error) {
+	return p.tableReference()
+}
+
+func (p *Parser) tableReference() (string, error) {
+	return p.tableFactor()
+}
+
+func (p *Parser) tableFactor() (string, error) {
+	return p.tablePrimary()
+}
+
+func (p *Parser) tablePrimary() (string, error) {
+	return p.tableOrQueryName()
+}
+
+func (p *Parser) tableOrQueryName() (string, error) {
+	return p.tableName()
+}
+
+func (p *Parser) tableName() (string, error) {
+	return p.localOrSchemaQualifiedName()
+}
+
+func (p *Parser) localOrSchemaQualifiedName() (string, error) {
+	return p.qualifiedIdentifier()
+}
+
+func (p *Parser) qualifiedIdentifier() (string, error) {
+	v, err := p.accept(identifier)
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}
+
+func (p *Parser) selectList() ([]string, error) {
+	if _, err := p.accept(asterisk); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (p *Parser) insertStatement() (driver.Stmt, error) {
 	var s InsertStatement
-	start := p.token.start
-	defer func() {
-		end := p.token.end
-		s.RawSQL = p.lex.input[start:end]
-	}()
 
 	if _, err := p.accept(kwInsert); err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
@@ -174,15 +274,15 @@ func (p *Parser) contextuallyTypedRowValueExpressionList() (Source, error) {
 	return &s, nil
 }
 
-func (p *Parser) contextuallyTypedRowValueExpression() (store.Values, error) {
+func (p *Parser) contextuallyTypedRowValueExpression() ([]interface{}, error) {
 	return p.contextuallyTypedRowValueConstructor()
 }
 
-func (p *Parser) contextuallyTypedRowValueConstructor() (store.Values, error) {
+func (p *Parser) contextuallyTypedRowValueConstructor() ([]interface{}, error) {
 	if _, err := p.accept(leftParen); err != nil {
 		return nil, err
 	}
-	var vs store.Values
+	var vs []interface{}
 	for {
 		v, err := p.contextuallyTypedRowValueConstructorElement()
 		if err != nil {
@@ -318,11 +418,11 @@ func (p *Parser) fromDefault() (Source, error) {
 	return nil, nil
 }
 
-func (p *Parser) sqlSchemaStatement() (Statement, error) {
+func (p *Parser) sqlSchemaStatement() (driver.Stmt, error) {
 	return p.sqlSchemaDefinitionStatement()
 }
 
-func (p *Parser) sqlSchemaDefinitionStatement() (Statement, error) {
+func (p *Parser) sqlSchemaDefinitionStatement() (driver.Stmt, error) {
 	return p.TableDefinition()
 }
 
@@ -472,4 +572,37 @@ func (p *Parser) columnNameList() ([]string, error) {
 		cols = append(cols, val.(string))
 	}
 	return cols, nil
+}
+
+type Source interface {
+	Columns() []ColumnDefinition
+	Next([]interface{}) bool
+}
+
+type FromConstructorSource [][]interface{}
+
+func (f *FromConstructorSource) Columns() []ColumnDefinition {
+	cds := make([]ColumnDefinition, len((*f)[0]))
+	for i, c := range (*f)[0] {
+		switch c.(type) {
+		case string:
+			cds[i] = ColumnDefinition{
+				DataType: Text,
+			}
+		case int64:
+			cds[i] = ColumnDefinition{
+				DataType: Integer,
+			}
+		}
+	}
+	return cds
+}
+
+func (f *FromConstructorSource) Next(val []interface{}) bool {
+	if len(*f) == 0 {
+		return false
+	}
+	copy(val, (*f)[0])
+	*f = (*f)[1:]
+	return true
 }

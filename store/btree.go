@@ -40,10 +40,14 @@ var defaultHeader = header{
 }
 
 type header struct {
-	Signature [8]byte
-	PageSize  uint32
-	CellSize  uint32
-	Root      PageNo
+	Signature  [8]byte
+	PageSize   uint32
+	CellSize   uint32
+	RootPageNo PageNo
+}
+
+func (h *header) Root() int {
+	return int(h.RootPageNo)
 }
 
 func (h *header) validate() error {
@@ -131,6 +135,11 @@ func (b *BTree) Close() error {
 	return nil
 }
 
+func (b *BTree) UpdateRoot(r int) error {
+	b.RootPageNo = PageNo(r)
+	return b.UpdateHeader()
+}
+
 func (b *BTree) UpdateHeader() error {
 	if _, err := b.file.Seek(0, io.SeekStart); err != nil {
 		return err
@@ -174,8 +183,8 @@ func (b *BTree) Iterator(root PageNo, key Values) *Iterator {
 	}
 }
 
-func (b *BTree) Search(root PageNo, key Values) (Values, error) {
-	iter := b.Iterator(root, key)
+func (b *BTree) Search(root int, key []interface{}) ([]interface{}, error) {
+	iter := b.Iterator(PageNo(root), key)
 	if !iter.Next() {
 		if err := iter.Err(); err != nil {
 			return nil, err
@@ -186,6 +195,21 @@ func (b *BTree) Search(root PageNo, key Values) (Values, error) {
 		return nil, ErrNotFound
 	}
 	return iter.Value, nil
+}
+
+func (b *BTree) Update(root int, key, val []interface{}) error {
+	iter := b.Iterator(PageNo(root), key)
+	if !iter.Next() {
+		if err := iter.Err(); err != nil {
+			return err
+		}
+		return ErrNotFound
+	}
+	if iter.Key.Compare(key) != 0 {
+		return ErrNotFound
+	}
+	iter.Value = val
+	return b.update(iter.page)
 }
 
 // TODO: cache
@@ -238,17 +262,17 @@ func (b *BTree) create(p *Page) error {
 	return nil
 }
 
-func (b *BTree) CreateRoot() (PageNo, error) {
+func (b *BTree) CreateRoot() (int, error) {
 	r := NewPage(int(b.PageSize), int(b.CellSize))
 	r.Type = Leaf
 	if err := b.create(r); err != nil {
 		return 0, xerrors.Errorf("failed to create new root: %w", err)
 	}
-	return r.PageNo, nil
+	return int(r.PageNo), nil
 }
 
-func (b *BTree) Insert(root PageNo, key, value Values) (PageNo, error) {
-	p, err := b.get(root)
+func (b *BTree) Insert(root int, key, value []interface{}) (int, error) {
+	p, err := b.get(PageNo(root))
 	if err != nil {
 		return 0, xerrors.Errorf("failed to get root page: %w", err)
 	}
@@ -261,7 +285,7 @@ func (b *BTree) Insert(root PageNo, key, value Values) (PageNo, error) {
 	if m != nil {
 		r := NewPage(int(b.PageSize), int(b.CellSize))
 		r.Type = Branch
-		r.Left = root
+		r.Left = PageNo(root)
 		r.Cells = r.Cells[:1]
 		r.Cells[0] = *m
 		if err := b.create(r); err != nil {
@@ -270,7 +294,7 @@ func (b *BTree) Insert(root PageNo, key, value Values) (PageNo, error) {
 		p = r
 	}
 
-	return p.PageNo, nil
+	return int(p.PageNo), nil
 }
 
 func (b *BTree) insert(p *Page, c *Cell) (*Cell, error) {

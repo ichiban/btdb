@@ -310,89 +310,89 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 1", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{1})
+		v, err := b.Search(int(r.PageNo), []interface{}{1})
 		assert.NoError(err)
-		assert.Equal(Values{"1"}, v)
+		assert.Equal([]interface{}{"1"}, v)
 	})
 
 	t.Run("select 4", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{4})
+		v, err := b.Search(int(r.PageNo), []interface{}{4})
 		assert.NoError(err)
-		assert.Equal(Values{"4"}, v)
+		assert.Equal([]interface{}{"4"}, v)
 	})
 
 	t.Run("select 9", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{9})
+		v, err := b.Search(int(r.PageNo), []interface{}{9})
 		assert.NoError(err)
-		assert.Equal(Values{"9"}, v)
+		assert.Equal([]interface{}{"9"}, v)
 	})
 
 	t.Run("select 10", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{10})
+		v, err := b.Search(int(r.PageNo), []interface{}{10})
 		assert.NoError(err)
-		assert.Equal(Values{"10"}, v)
+		assert.Equal([]interface{}{"10"}, v)
 	})
 
 	t.Run("select 11", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{11})
+		v, err := b.Search(int(r.PageNo), []interface{}{11})
 		assert.NoError(err)
-		assert.Equal(Values{"11"}, v)
+		assert.Equal([]interface{}{"11"}, v)
 	})
 
 	t.Run("select 12", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{12})
+		v, err := b.Search(int(r.PageNo), []interface{}{12})
 		assert.NoError(err)
-		assert.Equal(Values{"12"}, v)
+		assert.Equal([]interface{}{"12"}, v)
 	})
 
 	t.Run("select 13", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{13})
+		v, err := b.Search(int(r.PageNo), []interface{}{13})
 		assert.NoError(err)
-		assert.Equal(Values{"13"}, v)
+		assert.Equal([]interface{}{"13"}, v)
 	})
 
 	t.Run("select 15", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{15})
+		v, err := b.Search(int(r.PageNo), []interface{}{15})
 		assert.NoError(err)
-		assert.Equal(Values{"15"}, v)
+		assert.Equal([]interface{}{"15"}, v)
 	})
 
 	t.Run("select 16", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{16})
+		v, err := b.Search(int(r.PageNo), []interface{}{16})
 		assert.NoError(err)
-		assert.Equal(Values{"16"}, v)
+		assert.Equal([]interface{}{"16"}, v)
 	})
 
 	t.Run("select 20", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{20})
+		v, err := b.Search(int(r.PageNo), []interface{}{20})
 		assert.NoError(err)
-		assert.Equal(Values{"20"}, v)
+		assert.Equal([]interface{}{"20"}, v)
 	})
 
 	t.Run("select 25", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(r.PageNo, Values{25})
+		v, err := b.Search(int(r.PageNo), []interface{}{25})
 		assert.NoError(err)
-		assert.Equal(Values{"25"}, v)
+		assert.Equal([]interface{}{"25"}, v)
 	})
 }
 
@@ -441,9 +441,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(3), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{20}, Values{"20"})
+		n, err := b.Insert(int(r.PageNo), Values{20}, Values{"20"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, n)
+		assert.Equal(r.PageNo, PageNo(n))
 
 		r, err = b.get(PageNo(3))
 		assert.NoError(err)
@@ -522,9 +522,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(3), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{13}, Values{"13"})
+		n, err := b.Insert(int(r.PageNo), Values{13}, Values{"13"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, n)
+		assert.Equal(r.PageNo, PageNo(n))
 
 		r, err = b.get(PageNo(3))
 		assert.NoError(err)
@@ -625,9 +625,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(4), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{15}, Values{"15"})
+		n, err := b.Insert(int(r.PageNo), Values{15}, Values{"15"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, n)
+		assert.Equal(r.PageNo, PageNo(n))
 
 		r, err = b.get(PageNo(4))
 		assert.NoError(err)
@@ -731,9 +731,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(4), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{10}, Values{"10"})
+		n, err := b.Insert(int(r.PageNo), Values{10}, Values{"10"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, n)
+		assert.Equal(r.PageNo, PageNo(n))
 
 		r, err = b.get(PageNo(4))
 		assert.NoError(err)
@@ -859,9 +859,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(5), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{11}, Values{"11"})
+		n, err := b.Insert(int(r.PageNo), Values{11}, Values{"11"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, n)
+		assert.Equal(r.PageNo, PageNo(n))
 
 		r, err = b.get(PageNo(5))
 		assert.NoError(err)
@@ -990,9 +990,9 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(b.create(r))
 		assert.Equal(PageNo(5), r.PageNo)
 
-		n, err := b.Insert(r.PageNo, Values{12}, Values{"12"})
+		n, err := b.Insert(int(r.PageNo), Values{12}, Values{"12"})
 		assert.NoError(err)
-		assert.Equal(PageNo(8), n) // new root
+		assert.Equal(PageNo(8), PageNo(n)) // new root
 
 		r, err = b.get(PageNo(8))
 		assert.NoError(err)

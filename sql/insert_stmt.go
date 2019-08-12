@@ -1,43 +1,90 @@
 package sql
 
 import (
-	"github.com/ichiban/btdb/store"
+	"context"
+	"database/sql/driver"
 )
 
 type InsertStatement struct {
-	RawSQL string
+	store  Store
 	Target string
 	Source Source
 }
 
-func (i *InsertStatement) SQL() string {
-	return i.RawSQL
-}
-
-func (i *InsertStatement) Execute(b *store.BTree) error {
-	vs, err := b.Search(b.Root, store.Values{"table", i.Target})
-	if err != nil {
-		return err
-	}
-	p := NewParser(vs[1].(string))
-	_, err = p.TableDefinition()
-	if err != nil {
-		return err
-	}
+func (i *InsertStatement) Close() error {
 	return nil
 }
 
-type Source interface {
-	Next() store.Values
+func (i *InsertStatement) NumInput() int {
+	return 0
 }
 
-type FromConstructorSource []store.Values
+func (i *InsertStatement) Exec(args []driver.Value) (driver.Result, error) {
+	return i.ExecContext(context.Background(), namedValues(args))
+}
 
-func (s *FromConstructorSource) Next() store.Values {
-	if len(*s) == 0 {
-		return nil
+func (i *InsertStatement) Query(args []driver.Value) (driver.Rows, error) {
+	return i.QueryContext(context.Background(), namedValues(args))
+}
+
+func (i *InsertStatement) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	r, err := i.QueryContext(ctx, args)
+	return r.(driver.Result), err
+}
+
+func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	tk := []interface{}{"table", i.Target}
+
+	vs, err := i.store.Search(i.store.Root(), tk)
+	if err != nil {
+		return nil, err
 	}
-	v := (*s)[0]
-	*s = (*s)[1:]
-	return v
+
+	p := NewParser(i.store, vs[1].(string))
+	td, err := p.TableDefinition()
+	if err != nil {
+		return nil, err
+	}
+
+	cs := i.Source.Columns()
+	ch := make(chan []interface{})
+	rows := Rows{
+		cols: cs,
+		rows: ch,
+	}
+
+	go func() {
+		var val []interface{}
+		for i.Source.Next(val) {
+			k := make([]interface{}, 0, len(cs))
+			v := make([]interface{}, 0, len(cs))
+			for i, c := range cs {
+				if td.primaryKey(c.Name) {
+					k = append(k, val[i])
+				} else {
+					v = append(v, val[i])
+				}
+			}
+
+			or := vs[0].(int)
+			nr, err := i.store.Insert(or, k, v)
+			if err != nil {
+				rows.Err = err
+				break
+			}
+
+			ch <- val
+
+			if nr != or {
+				vs[0] = nr
+				if err := i.store.Update(i.store.Root(), tk, vs); err != nil {
+					rows.Err = err
+					break
+				}
+			}
+		}
+		close(ch)
+	}()
+
+	return &rows, nil
 }

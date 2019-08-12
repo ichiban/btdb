@@ -5,6 +5,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"golang.org/x/xerrors"
+
 	"github.com/ichiban/btdb/sql"
 	"github.com/ichiban/btdb/store"
 )
@@ -22,7 +24,7 @@ func Create(name string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	t.Root = r
+	t.RootPageNo = store.PageNo(r)
 	if err := t.UpdateHeader(); err != nil {
 		return nil, err
 	}
@@ -46,15 +48,16 @@ func (d *Database) Close() error {
 }
 
 func (d *Database) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	p := sql.NewParser(query)
+	p := sql.NewParser(d.tree, query)
 	s, err := p.DirectSQLStatement()
 	if err != nil {
 		return nil, err
 	}
-	if err := s.Execute(d.tree); err != nil {
-		return nil, err
+	sc, ok := s.(driver.StmtQueryContext)
+	if !ok {
+		return nil, xerrors.New("not implemented")
 	}
-	return nil, nil
+	return sc.QueryContext(ctx, args)
 }
 
 func (d *Database) String() string {

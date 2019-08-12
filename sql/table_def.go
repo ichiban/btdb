@@ -1,10 +1,13 @@
 package sql
 
 import (
-	"github.com/ichiban/btdb/store"
+	"context"
+	"database/sql/driver"
 )
 
 type TableDefinition struct {
+	store Store
+
 	RawSQL     string
 	Name       string
 	Columns    []ColumnDefinition
@@ -12,27 +15,52 @@ type TableDefinition struct {
 	UniqueKeys [][]string
 }
 
-func (t *TableDefinition) SQL() string {
-	return t.RawSQL
+func (t *TableDefinition) Close() error {
+	return nil
 }
 
-func (t *TableDefinition) Execute(b *store.BTree) error {
-	n, err := b.CreateRoot()
+func (t *TableDefinition) NumInput() int {
+	return 0
+}
+
+func (t *TableDefinition) Exec(args []driver.Value) (driver.Result, error) {
+	return t.ExecContext(context.Background(), namedValues(args))
+}
+
+func (t *TableDefinition) Query(args []driver.Value) (driver.Rows, error) {
+	return t.QueryContext(context.Background(), namedValues(args))
+}
+
+func (t *TableDefinition) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	r, err := t.QueryContext(ctx, args)
+	return r.(driver.Result), err
+}
+
+func (t *TableDefinition) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	n, err := t.store.CreateRoot()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r, err := b.Insert(b.Root, store.Values{"table", t.Name}, store.Values{n, t.SQL()})
+	r, err := t.store.Insert(t.store.Root(), []interface{}{"table", t.Name}, []interface{}{n, t.RawSQL})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if b.Root == r {
-		return nil
+	if t.store.Root() == r {
+		return nil, nil
 	}
-	b.Root = r
-	if err := b.UpdateHeader(); err != nil {
-		return err
+	if err := t.store.UpdateRoot(r); err != nil {
+		return nil, err
 	}
-	return nil
+	return nil, nil
+}
+
+func (t *TableDefinition) primaryKey(c string) bool {
+	for _, p := range t.PrimaryKey {
+		if p == c {
+			return true
+		}
+	}
+	return false
 }
 
 type ColumnDefinition struct {
