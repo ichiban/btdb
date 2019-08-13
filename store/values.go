@@ -25,6 +25,8 @@ func (v Values) Compare(o Values) int {
 			switch o := o[i].(type) {
 			case int:
 				w = o
+			case int64:
+				w = int(o)
 			case uint64:
 				w = int(o)
 			default:
@@ -33,10 +35,27 @@ func (v Values) Compare(o Values) int {
 			if d := v - w; d != 0 {
 				return d
 			}
+		case int64:
+			var w int64
+			switch o := o[i].(type) {
+			case int:
+				w = int64(o)
+			case int64:
+				w = o
+			case uint64:
+				w = int64(o)
+			default:
+				panic(fmt.Errorf("not comparable: index=%d, left=%T, right=%T", i, v, o))
+			}
+			if d := v - w; d != 0 {
+				return int(d)
+			}
 		case uint64:
 			var w uint64
 			switch o := o[i].(type) {
 			case int:
+				w = uint64(o)
+			case int64:
 				w = uint64(o)
 			case uint64:
 				w = o

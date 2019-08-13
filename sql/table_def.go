@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 )
 
 type TableDefinition struct {
@@ -45,13 +46,31 @@ func (t *TableDefinition) QueryContext(ctx context.Context, args []driver.NamedV
 	if err != nil {
 		return nil, err
 	}
+
+	ch := make(chan []interface{})
+	go func() {
+		ch <- []interface{}{"table", t.Name, n, t.RawSQL}
+		close(ch)
+	}()
+
+	rows := Rows{
+		cols: []ColumnDefinition{
+			{Name: "kind", DataType: Text},
+			{Name: "name", DataType: Text},
+			{Name: "root", DataType: Integer},
+			{Name: "body", DataType: Text},
+		},
+		rows: ch,
+	}
+
 	if t.store.Root() == r {
-		return nil, nil
+		return &rows, nil
 	}
 	if err := t.store.UpdateRoot(r); err != nil {
 		return nil, err
 	}
-	return nil, nil
+
+	return &rows, nil
 }
 
 func (t *TableDefinition) primaryKey(c string) bool {
@@ -74,3 +93,18 @@ const (
 	Text DataType = iota
 	Integer
 )
+
+func (d DataType) String() string {
+	switch d {
+	case Text:
+		return "text"
+	case Integer:
+		return "integer"
+	default:
+		return "unknown"
+	}
+}
+
+func (d DataType) GoString() string {
+	return fmt.Sprintf("<%s>", d.String())
+}

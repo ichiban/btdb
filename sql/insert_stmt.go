@@ -46,19 +46,24 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 		return nil, err
 	}
 
-	cs := i.Source.Columns()
 	ch := make(chan []interface{})
 	rows := Rows{
-		cols: cs,
+		cols: td.Columns,
 		rows: ch,
 	}
 
 	go func() {
-		var val []interface{}
-		for i.Source.Next(val) {
-			k := make([]interface{}, 0, len(cs))
-			v := make([]interface{}, 0, len(cs))
-			for i, c := range cs {
+		src := projection{
+			src:  i.Source,
+			cols: td.Columns,
+		}
+
+		val := make([]interface{}, len(td.Columns))
+		for src.Next(val) {
+			k := make([]interface{}, 0, len(td.PrimaryKey))
+			v := make([]interface{}, 0, len(td.Columns)-len(td.PrimaryKey))
+
+			for i, c := range td.Columns {
 				if td.primaryKey(c.Name) {
 					k = append(k, val[i])
 				} else {
@@ -66,8 +71,8 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 				}
 			}
 
-			or := vs[0].(int)
-			nr, err := i.store.Insert(or, k, v)
+			or := vs[0].(uint64)
+			nr, err := i.store.Insert(int(or), k, v)
 			if err != nil {
 				rows.Err = err
 				break
@@ -75,7 +80,7 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 
 			ch <- val
 
-			if nr != or {
+			if nr != int(or) {
 				vs[0] = nr
 				if err := i.store.Update(i.store.Root(), tk, vs); err != nil {
 					rows.Err = err

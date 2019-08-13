@@ -181,8 +181,6 @@ func (p *Parser) selectList() ([]string, error) {
 }
 
 func (p *Parser) insertStatement() (driver.Stmt, error) {
-	var s InsertStatement
-
 	if _, err := p.accept(kwInsert); err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
@@ -193,13 +191,15 @@ func (p *Parser) insertStatement() (driver.Stmt, error) {
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
-	s.Target = name
 	source, err := p.insertColumnsAndSource()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing insert statement: %w", err)
 	}
-	s.Source = source
-	return &s, nil
+	return &InsertStatement{
+		store:  p.store,
+		Target: name,
+		Source: source,
+	}, nil
 }
 
 func (p *Parser) insertionTarget() (string, error) {
@@ -225,8 +225,9 @@ func (p *Parser) fromSubquery() (Source, error) {
 }
 
 func (p *Parser) fromConstructor() (Source, error) {
+	var names []string
 	if _, err := p.accept(leftParen); err == nil {
-		_, err := p.insertColumnList()
+		names, err = p.insertColumnList()
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +236,7 @@ func (p *Parser) fromConstructor() (Source, error) {
 		}
 	}
 
-	v, err := p.contextuallyTypedTableValueConstructor()
+	v, err := p.contextuallyTypedTableValueConstructor(names)
 	if err != nil {
 		return nil, err
 	}
@@ -247,20 +248,22 @@ func (p *Parser) insertColumnList() ([]string, error) {
 	return p.columnNameList()
 }
 
-func (p *Parser) contextuallyTypedTableValueConstructor() (Source, error) {
+func (p *Parser) contextuallyTypedTableValueConstructor(names []string) (Source, error) {
 	if _, err := p.accept(kwValues); err != nil {
 		return nil, err
 	}
-	return p.contextuallyTypedRowValueExpressionList()
+	return p.contextuallyTypedRowValueExpressionList(names)
 }
 
-func (p *Parser) contextuallyTypedRowValueExpressionList() (Source, error) {
-	var s FromConstructorSource
+func (p *Parser) contextuallyTypedRowValueExpressionList(names []string) (Source, error) {
+	s := FromConstructorSource{
+		names: names,
+	}
 	v, err := p.contextuallyTypedRowValueExpression()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing the first contextually typed row value expression: %w", err)
 	}
-	s = append(s, v)
+	s.values = append(s.values, v)
 	for {
 		if _, err := p.accept(comma); err != nil {
 			break
@@ -269,7 +272,7 @@ func (p *Parser) contextuallyTypedRowValueExpressionList() (Source, error) {
 		if err != nil {
 			return nil, xerrors.Errorf("while parsing a contextually typed row value expression: %w", err)
 		}
-		s = append(s, v)
+		s.values = append(s.values, v)
 	}
 	return &s, nil
 }
@@ -427,7 +430,9 @@ func (p *Parser) sqlSchemaDefinitionStatement() (driver.Stmt, error) {
 }
 
 func (p *Parser) TableDefinition() (*TableDefinition, error) {
-	var t TableDefinition
+	t := TableDefinition{
+		store: p.store,
+	}
 	start := p.token.start
 	defer func() {
 		end := p.token.end
@@ -579,18 +584,23 @@ type Source interface {
 	Next([]interface{}) bool
 }
 
-type FromConstructorSource [][]interface{}
+type FromConstructorSource struct {
+	names  []string
+	values [][]interface{}
+}
 
 func (f *FromConstructorSource) Columns() []ColumnDefinition {
-	cds := make([]ColumnDefinition, len((*f)[0]))
-	for i, c := range (*f)[0] {
+	cds := make([]ColumnDefinition, len(f.values[0]))
+	for i, c := range f.values[0] {
 		switch c.(type) {
 		case string:
 			cds[i] = ColumnDefinition{
+				Name:     f.names[i],
 				DataType: Text,
 			}
 		case int64:
 			cds[i] = ColumnDefinition{
+				Name:     f.names[i],
 				DataType: Integer,
 			}
 		}
@@ -599,10 +609,51 @@ func (f *FromConstructorSource) Columns() []ColumnDefinition {
 }
 
 func (f *FromConstructorSource) Next(val []interface{}) bool {
-	if len(*f) == 0 {
+	if len(f.values) == 0 {
 		return false
 	}
-	copy(val, (*f)[0])
-	*f = (*f)[1:]
+	copy(val, f.values[0])
+	f.values = f.values[1:]
+	return true
+}
+
+type projection struct {
+	src     Source
+	cols    []ColumnDefinition
+	mapping []int
+}
+
+func (p *projection) Columns() []ColumnDefinition {
+	return p.cols
+}
+
+func (p *projection) Next(dest []interface{}) bool {
+	if len(p.mapping) == 0 {
+		p.mapping = make([]int, len(p.src.Columns()))
+
+	src:
+		for i, sc := range p.src.Columns() {
+			for j, dc := range p.cols {
+				if sc.Name == dc.Name && sc.DataType == dc.DataType {
+					p.mapping[i] = j
+					continue src
+				}
+			}
+			p.mapping[i] = -1
+		}
+	}
+
+	val := make([]interface{}, len(p.src.Columns()))
+	if !p.src.Next(val) {
+		return false
+	}
+
+	for i, v := range val {
+		m := p.mapping[i]
+		if m >= 0 {
+			dest[m] = v
+		}
+	}
+
 	return true
 }

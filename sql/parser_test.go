@@ -52,6 +52,11 @@ values(10, 'ACCOUNTING', 'NEW YORK');
 		require.IsType(&InsertStatement{}, s)
 		is := s.(*InsertStatement)
 		assert.Equal("DEPT", is.Target)
+		assert.Equal([]ColumnDefinition{
+			{Name: "DEPTNO", DataType: Integer},
+			{Name: "DNAME", DataType: Text},
+			{Name: "LOC", DataType: Text},
+		}, is.Source.Columns())
 		vs := make([]interface{}, len(is.Source.Columns()))
 		assert.True(is.Source.Next(vs))
 		assert.Equal([]interface{}{int64(10), "ACCOUNTING", "NEW YORK"}, vs)
