@@ -8,7 +8,7 @@ import (
 type InsertStatement struct {
 	store  Store
 	Target string
-	Source Source
+	Source *Rows
 }
 
 func (i *InsertStatement) Close() error {
@@ -46,20 +46,25 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 		return nil, err
 	}
 
-	ch := make(chan []interface{})
+	cols := make([]string, len(td.Columns))
+	for i, c := range td.Columns {
+		cols[i] = c.Name
+	}
+
+	ch := make(chan []driver.Value)
 	rows := Rows{
-		cols: td.Columns,
+		cols: cols,
 		rows: ch,
 	}
 
 	go func() {
-		src := projection{
-			src:  i.Source,
-			cols: td.Columns,
-		}
+		src := i.Source.projection(cols)
 
-		val := make([]interface{}, len(td.Columns))
-		for src.Next(val) {
+		val := make([]driver.Value, len(td.Columns))
+		for {
+			if err := src.Next(val); err != nil {
+
+			}
 			k := make([]interface{}, 0, len(td.PrimaryKey))
 			v := make([]interface{}, 0, len(td.Columns)-len(td.PrimaryKey))
 

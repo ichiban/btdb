@@ -47,19 +47,14 @@ func (t *TableDefinition) QueryContext(ctx context.Context, args []driver.NamedV
 		return nil, err
 	}
 
-	ch := make(chan []interface{})
+	ch := make(chan []driver.Value)
 	go func() {
-		ch <- []interface{}{"table", t.Name, n, t.RawSQL}
+		ch <- []driver.Value{"table", t.Name, n, t.RawSQL}
 		close(ch)
 	}()
 
 	rows := Rows{
-		cols: []ColumnDefinition{
-			{Name: "kind", DataType: Text},
-			{Name: "name", DataType: Text},
-			{Name: "root", DataType: Integer},
-			{Name: "body", DataType: Text},
-		},
+		cols: []string{"kind", "name", "root", "body"},
 		rows: ch,
 	}
 

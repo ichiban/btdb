@@ -10,16 +10,12 @@ import (
 type Rows struct {
 	Err error
 
-	cols []ColumnDefinition
-	rows <-chan []interface{}
+	cols []string
+	rows <-chan []driver.Value
 }
 
 func (r *Rows) Columns() []string {
-	cs := make([]string, len(r.cols))
-	for i, col := range r.cols {
-		cs[i] = col.Name
-	}
-	return cs
+	return r.cols
 }
 
 func (Rows) Close() error {
@@ -54,4 +50,39 @@ func (r *Rows) RowsAffected() (int64, error) {
 		c++
 	}
 	return c, nil
+}
+
+func (r *Rows) projection(cols []string) *Rows {
+	mapping := make([]int, len(r.cols))
+
+src:
+	for i, sc := range r.cols {
+		for j, dc := range cols {
+			if sc == dc {
+				mapping[i] = j
+				continue src
+			}
+		}
+		mapping[i] = -1
+	}
+
+	ch := make(chan []driver.Value)
+	go func() {
+		for r := range r.rows {
+			dest := make([]driver.Value, len(r))
+			for i, v := range r {
+				m := mapping[i]
+				if m >= 0 {
+					dest[m] = v
+				}
+			}
+			ch <- dest
+		}
+		close(ch)
+	}()
+
+	return &Rows{
+		cols: cols,
+		rows: ch,
+	}
 }

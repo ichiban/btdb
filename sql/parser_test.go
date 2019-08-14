@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"database/sql/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,14 +53,10 @@ values(10, 'ACCOUNTING', 'NEW YORK');
 		require.IsType(&InsertStatement{}, s)
 		is := s.(*InsertStatement)
 		assert.Equal("DEPT", is.Target)
-		assert.Equal([]ColumnDefinition{
-			{Name: "DEPTNO", DataType: Integer},
-			{Name: "DNAME", DataType: Text},
-			{Name: "LOC", DataType: Text},
-		}, is.Source.Columns())
-		vs := make([]interface{}, len(is.Source.Columns()))
-		assert.True(is.Source.Next(vs))
-		assert.Equal([]interface{}{int64(10), "ACCOUNTING", "NEW YORK"}, vs)
-		assert.False(is.Source.Next(vs))
+		assert.Equal([]string{"DEPTNO", "DNAME", "LOC"}, is.Source.Columns())
+		vs := make([]driver.Value, len(is.Source.Columns()))
+		assert.NoError(is.Source.Next(vs))
+		assert.Equal([]driver.Value{int64(10), "ACCOUNTING", "NEW YORK"}, vs)
+		assert.Error(is.Source.Next(vs))
 	})
 }

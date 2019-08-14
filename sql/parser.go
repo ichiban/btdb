@@ -210,7 +210,7 @@ func (p *Parser) insertionTarget() (string, error) {
 	return val.(string), nil
 }
 
-func (p *Parser) insertColumnsAndSource() (Source, error) {
+func (p *Parser) insertColumnsAndSource() (*Rows, error) {
 	if s, err := p.fromDefault(); err == nil {
 		return s, nil
 	}
@@ -220,11 +220,11 @@ func (p *Parser) insertColumnsAndSource() (Source, error) {
 	return p.fromConstructor()
 }
 
-func (p *Parser) fromSubquery() (Source, error) {
+func (p *Parser) fromSubquery() (*Rows, error) {
 	return nil, xerrors.New("not implemented") // TODO
 }
 
-func (p *Parser) fromConstructor() (Source, error) {
+func (p *Parser) fromConstructor() (*Rows, error) {
 	var names []string
 	if _, err := p.accept(leftParen); err == nil {
 		names, err = p.insertColumnList()
@@ -248,22 +248,20 @@ func (p *Parser) insertColumnList() ([]string, error) {
 	return p.columnNameList()
 }
 
-func (p *Parser) contextuallyTypedTableValueConstructor(names []string) (Source, error) {
+func (p *Parser) contextuallyTypedTableValueConstructor(names []string) (*Rows, error) {
 	if _, err := p.accept(kwValues); err != nil {
 		return nil, err
 	}
 	return p.contextuallyTypedRowValueExpressionList(names)
 }
 
-func (p *Parser) contextuallyTypedRowValueExpressionList(names []string) (Source, error) {
-	s := FromConstructorSource{
-		names: names,
-	}
+func (p *Parser) contextuallyTypedRowValueExpressionList(names []string) (*Rows, error) {
+	var values [][]driver.Value
 	v, err := p.contextuallyTypedRowValueExpression()
 	if err != nil {
 		return nil, xerrors.Errorf("while parsing the first contextually typed row value expression: %w", err)
 	}
-	s.values = append(s.values, v)
+	values = append(values, v)
 	for {
 		if _, err := p.accept(comma); err != nil {
 			break
@@ -272,20 +270,32 @@ func (p *Parser) contextuallyTypedRowValueExpressionList(names []string) (Source
 		if err != nil {
 			return nil, xerrors.Errorf("while parsing a contextually typed row value expression: %w", err)
 		}
-		s.values = append(s.values, v)
+		values = append(values, v)
 	}
-	return &s, nil
+
+	ch := make(chan []driver.Value)
+	go func() {
+		for _, v := range values {
+			ch <- v
+		}
+		close(ch)
+	}()
+
+	return &Rows{
+		cols: names,
+		rows: ch,
+	}, nil
 }
 
-func (p *Parser) contextuallyTypedRowValueExpression() ([]interface{}, error) {
+func (p *Parser) contextuallyTypedRowValueExpression() ([]driver.Value, error) {
 	return p.contextuallyTypedRowValueConstructor()
 }
 
-func (p *Parser) contextuallyTypedRowValueConstructor() ([]interface{}, error) {
+func (p *Parser) contextuallyTypedRowValueConstructor() ([]driver.Value, error) {
 	if _, err := p.accept(leftParen); err != nil {
 		return nil, err
 	}
-	var vs []interface{}
+	var vs []driver.Value
 	for {
 		v, err := p.contextuallyTypedRowValueConstructorElement()
 		if err != nil {
@@ -302,15 +312,15 @@ func (p *Parser) contextuallyTypedRowValueConstructor() ([]interface{}, error) {
 	return vs, nil
 }
 
-func (p *Parser) contextuallyTypedRowValueConstructorElement() (interface{}, error) {
+func (p *Parser) contextuallyTypedRowValueConstructorElement() (driver.Value, error) {
 	return p.valueExpression()
 }
 
-func (p *Parser) valueExpression() (interface{}, error) {
+func (p *Parser) valueExpression() (driver.Value, error) {
 	return p.commonValueExpression()
 }
 
-func (p *Parser) commonValueExpression() (interface{}, error) {
+func (p *Parser) commonValueExpression() (driver.Value, error) {
 	if v, err := p.numericValueExpression(); err == nil {
 		return v, nil
 	}
@@ -320,15 +330,15 @@ func (p *Parser) commonValueExpression() (interface{}, error) {
 	return nil, xerrors.New("non common value expression")
 }
 
-func (p *Parser) numericValueExpression() (interface{}, error) {
+func (p *Parser) numericValueExpression() (driver.Value, error) {
 	return p.term()
 }
 
-func (p *Parser) term() (interface{}, error) {
+func (p *Parser) term() (driver.Value, error) {
 	return p.factor()
 }
 
-func (p *Parser) factor() (interface{}, error) {
+func (p *Parser) factor() (driver.Value, error) {
 	_, _ = p.sign() // TODO
 	return p.numericPrimary()
 }
@@ -411,7 +421,7 @@ func (p *Parser) characterPrimary() (string, error) {
 	return "", xerrors.New("non character primary")
 }
 
-func (p *Parser) fromDefault() (Source, error) {
+func (p *Parser) fromDefault() (*Rows, error) {
 	if _, err := p.accept(kwDefault); err != nil {
 		return nil, err
 	}
@@ -579,11 +589,6 @@ func (p *Parser) columnNameList() ([]string, error) {
 	return cols, nil
 }
 
-type Source interface {
-	Columns() []ColumnDefinition
-	Next([]interface{}) bool
-}
-
 type FromConstructorSource struct {
 	names  []string
 	values [][]interface{}
@@ -614,46 +619,5 @@ func (f *FromConstructorSource) Next(val []interface{}) bool {
 	}
 	copy(val, f.values[0])
 	f.values = f.values[1:]
-	return true
-}
-
-type projection struct {
-	src     Source
-	cols    []ColumnDefinition
-	mapping []int
-}
-
-func (p *projection) Columns() []ColumnDefinition {
-	return p.cols
-}
-
-func (p *projection) Next(dest []interface{}) bool {
-	if len(p.mapping) == 0 {
-		p.mapping = make([]int, len(p.src.Columns()))
-
-	src:
-		for i, sc := range p.src.Columns() {
-			for j, dc := range p.cols {
-				if sc.Name == dc.Name && sc.DataType == dc.DataType {
-					p.mapping[i] = j
-					continue src
-				}
-			}
-			p.mapping[i] = -1
-		}
-	}
-
-	val := make([]interface{}, len(p.src.Columns()))
-	if !p.src.Next(val) {
-		return false
-	}
-
-	for i, v := range val {
-		m := p.mapping[i]
-		if m >= 0 {
-			dest[m] = v
-		}
-	}
-
 	return true
 }
