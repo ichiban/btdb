@@ -8,15 +8,15 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-type Values []interface{}
+type values []interface{}
 
 var handle codec.CborHandle
 
-var ErrNotComparable = errors.New("not comparable")
+var errNotComparable = errors.New("not comparable")
 
-func (v Values) Compare(o Values) int {
+func (v values) compare(o values) int {
 	if len(v) != len(o) {
-		panic(ErrNotComparable)
+		panic(errNotComparable)
 	}
 	for i := range v {
 		switch v := v[i].(type) {
@@ -85,7 +85,7 @@ func (v Values) Compare(o Values) int {
 	return 0
 }
 
-func (v Values) GoString() string {
+func (v values) GoString() string {
 	ret := make([]string, len(v))
 	for i, v := range v {
 		ret[i] = fmt.Sprintf("%#v", v)

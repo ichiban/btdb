@@ -12,26 +12,26 @@ import (
 	"github.com/pkg/errors"
 )
 
-type PageNo uint32
+type pageNo uint32
 
-type PageType int8
+type pageType int8
 
 const (
-	Free PageType = iota
-	Branch
-	Leaf
-	Overflow
+	free pageType = iota
+	branch
+	leaf
+	overflow
 )
 
-func (t PageType) String() string {
+func (t pageType) String() string {
 	switch t {
-	case Free:
+	case free:
 		return "free"
-	case Branch:
+	case branch:
 		return "branch"
-	case Leaf:
+	case leaf:
 		return "leaf"
-	case Overflow:
+	case overflow:
 		return "overflow"
 	default:
 		return "unknown"
@@ -42,21 +42,21 @@ type Page struct {
 	size     int
 	cellSize int
 
-	PageNo PageNo
-	Type   PageType
-	Next   PageNo
-	Prev   PageNo
-	Left   PageNo // leftmost pointer in Branch page
-	Cells  []Cell
+	pageNo   pageNo
+	pageType pageType
+	next     pageNo
+	prev     pageNo
+	left     pageNo // leftmost pointer in branch page
+	cells    []cell
 }
 
-const PageHeaderSize = 1 + 3 + 4 + 4 + 4
+const pageHeaderSize = 1 + 3 + 4 + 4 + 4
 
 func NewPage(size, cellSize int) *Page {
 	return &Page{
 		size:     size,
 		cellSize: cellSize,
-		Cells:    make([]Cell, 0, (size-PageHeaderSize)/cellSize),
+		cells:    make([]cell, 0, (size-pageHeaderSize)/cellSize),
 	}
 }
 
@@ -68,7 +68,7 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to read page")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Type); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &p.pageType); err != nil {
 		return 0, errors.Wrap(err, "failed to read page type")
 	}
 
@@ -81,22 +81,22 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 		return 0, errors.Wrap(err, "failed to read size")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Next); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &p.next); err != nil {
 		return 0, errors.Wrap(err, "failed to read next page no")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Prev); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &p.prev); err != nil {
 		return 0, errors.Wrap(err, "failed to read prev page no")
 	}
 
-	if err := binary.Read(buf, binary.BigEndian, &p.Left); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &p.left); err != nil {
 		return 0, errors.Wrap(err, "failed to read left page no")
 	}
 
-	p.Cells = p.Cells[:size]
-	for i := range p.Cells {
-		p.Cells[i].size = p.cellSize
-		if _, err := p.Cells[i].ReadFrom(buf); err != nil {
+	p.cells = p.cells[:size]
+	for i := range p.cells {
+		p.cells[i].size = p.cellSize
+		if _, err := p.cells[i].ReadFrom(buf); err != nil {
 			return 0, errors.Wrapf(err, "failed to read cell: %d", i)
 		}
 	}
@@ -107,7 +107,7 @@ func (p *Page) ReadFrom(r io.Reader) (int64, error) {
 func (p *Page) WriteTo(w io.Writer) (int64, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, p.size))
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Type); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.pageType); err != nil {
 		return 0, err
 	}
 
@@ -115,23 +115,23 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, uint16(len(p.Cells))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint16(len(p.cells))); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Next); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.next); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Prev); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.prev); err != nil {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, &p.Left); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, &p.left); err != nil {
 		return 0, err
 	}
 
-	for _, c := range p.Cells {
+	for _, c := range p.cells {
 		c.size = p.cellSize
 		if _, err := c.WriteTo(buf); err != nil {
 			return 0, err
@@ -144,116 +144,116 @@ func (p *Page) WriteTo(w io.Writer) (int64, error) {
 
 var ErrDuplicateKey = errors.New("duplicate key")
 
-func (p *Page) Insert(c *Cell) error {
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return p.Cells[i].Key.Compare(c.Key) >= 0
+func (p *Page) Insert(c *cell) error {
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return p.cells[i].Key.compare(c.Key) >= 0
 	})
-	if len(p.Cells) > 0 && i < len(p.Cells) && p.Cells[i].Key.Compare(c.Key) == 0 {
+	if len(p.cells) > 0 && i < len(p.cells) && p.cells[i].Key.compare(c.Key) == 0 {
 		return ErrDuplicateKey
 	}
-	p.Cells = p.Cells[:len(p.Cells)+1]
-	copy(p.Cells[i+1:], p.Cells[i:])
-	p.Cells[i] = *c
+	p.cells = p.cells[:len(p.cells)+1]
+	copy(p.cells[i+1:], p.cells[i:])
+	p.cells[i] = *c
 	return nil
 }
 
-func (p *Page) WillOverflow() bool {
-	return len(p.Cells)+1 > cap(p.Cells)
+func (p *Page) willOverflow() bool {
+	return len(p.cells)+1 > cap(p.cells)
 }
 
-func (p *Page) Contains(key Values) bool {
-	if len(p.Cells) == 0 {
+func (p *Page) Contains(key values) bool {
+	if len(p.cells) == 0 {
 		return false
 	}
 
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return key.Compare(p.Cells[i].Key) >= 0
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return key.compare(p.cells[i].Key) >= 0
 	})
 
-	return i < len(p.Cells) && key.Compare(p.Cells[0].Key) == 0
+	return i < len(p.cells) && key.compare(p.cells[0].Key) == 0
 }
 
-func (p *Page) Delete(key Values) error {
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return key.Compare(p.Cells[i].Key) >= 0
+func (p *Page) Delete(key values) error {
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return key.compare(p.cells[i].Key) >= 0
 	})
-	if len(p.Cells) == 0 || i >= len(p.Cells) || p.Cells[i].Key.Compare(key) != 0 {
+	if len(p.cells) == 0 || i >= len(p.cells) || p.cells[i].Key.compare(key) != 0 {
 		return ErrNotFound
 	}
-	p.Cells = p.Cells[:i+copy(p.Cells[i:], p.Cells[i+1:])]
+	p.cells = p.cells[:i+copy(p.cells[i:], p.cells[i+1:])]
 	return nil
 }
 
-func (p *Page) InsertSplit(c *Cell) (*Page, error) {
-	cells := make([]Cell, len(p.Cells)+1)
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return c.Key.Compare(p.Cells[i].Key) <= 0
+func (p *Page) InsertSplit(c *cell) (*Page, error) {
+	cells := make([]cell, len(p.cells)+1)
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return c.Key.compare(p.cells[i].Key) <= 0
 	})
-	if i < len(p.Cells) && c.Key.Compare(p.Cells[i].Key) == 0 {
+	if i < len(p.cells) && c.Key.compare(p.cells[i].Key) == 0 {
 		return nil, ErrDuplicateKey
 	}
-	copy(cells[:i], p.Cells[:i])
+	copy(cells[:i], p.cells[:i])
 	cells[i] = *c
-	copy(cells[i+1:], p.Cells[i:])
+	copy(cells[i+1:], p.cells[i:])
 
 	m := len(cells) / 2
 
-	p.Cells = p.Cells[:m]
-	copy(p.Cells, cells[:m])
+	p.cells = p.cells[:m]
+	copy(p.cells, cells[:m])
 
 	r := NewPage(p.size, p.cellSize)
-	r.Type = p.Type
-	r.Cells = r.Cells[:m]
-	copy(r.Cells, cells[m:])
+	r.pageType = p.pageType
+	r.cells = r.cells[:m]
+	copy(r.cells, cells[m:])
 
 	return r, nil
 }
 
-func (p *Page) InsertSplitMiddle(c *Cell) (*Page, Values, error) {
-	cells := make([]Cell, len(p.Cells)+1)
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return c.Key.Compare(p.Cells[i].Key) <= 0
+func (p *Page) InsertSplitMiddle(c *cell) (*Page, values, error) {
+	cells := make([]cell, len(p.cells)+1)
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return c.Key.compare(p.cells[i].Key) <= 0
 	})
-	if i < len(p.Cells) && c.Key.Compare(p.Cells[i].Key) == 0 {
+	if i < len(p.cells) && c.Key.compare(p.cells[i].Key) == 0 {
 		return nil, nil, ErrDuplicateKey
 	}
-	copy(cells[:i], p.Cells[:i])
+	copy(cells[:i], p.cells[:i])
 	cells[i] = *c
-	copy(cells[i+1:], p.Cells[i:])
+	copy(cells[i+1:], p.cells[i:])
 
 	m := len(cells) / 2
 
-	p.Cells = p.Cells[:m]
-	copy(p.Cells, cells[:m])
+	p.cells = p.cells[:m]
+	copy(p.cells, cells[:m])
 
 	r := NewPage(p.size, p.cellSize)
-	r.Type = p.Type
-	r.Left = cells[m].Right
-	r.Cells = r.Cells[:m-1]
-	copy(r.Cells, cells[m+1:])
+	r.pageType = p.pageType
+	r.left = cells[m].Right
+	r.cells = r.cells[:m-1]
+	copy(r.cells, cells[m+1:])
 
 	return r, cells[m].Key, nil
 }
 
 func (p *Page) GoString() string {
-	ret := make([]string, len(p.Cells))
-	for i, c := range p.Cells {
+	ret := make([]string, len(p.cells))
+	for i, c := range p.cells {
 		ret[i] = fmt.Sprintf("%#v", c)
 	}
-	if p.Type == Leaf {
-		return fmt.Sprintf("(%d)%s{%s}", p.PageNo, p.Type, strings.Join(ret, ", "))
+	if p.pageType == leaf {
+		return fmt.Sprintf("(%d)%s{%s}", p.pageNo, p.pageType, strings.Join(ret, ", "))
 	} else {
-		return fmt.Sprintf("(%d)%s{%s}->%d", p.PageNo, p.Type, strings.Join(ret, ", "), p.Left)
+		return fmt.Sprintf("(%d)%s{%s}->%d", p.pageNo, p.pageType, strings.Join(ret, ", "), p.left)
 	}
 }
 
-func (p *Page) child(key Values) PageNo {
-	i := sort.Search(len(p.Cells), func(i int) bool {
-		return key.Compare(p.Cells[i].Key) < 0
+func (p *Page) child(key values) pageNo {
+	i := sort.Search(len(p.cells), func(i int) bool {
+		return key.compare(p.cells[i].Key) < 0
 	})
 	i -= 1
 	if i < 0 {
-		return p.Left
+		return p.left
 	}
-	return p.Cells[i].Right
+	return p.cells[i].Right
 }

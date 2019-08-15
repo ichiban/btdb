@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+
+	"github.com/ichiban/btdb/store"
 )
 
 type TableDefinition struct {
-	store Store
+	store *store.BTree
 
 	RawSQL     string
 	Name       string
@@ -66,6 +68,24 @@ func (t *TableDefinition) QueryContext(ctx context.Context, args []driver.NamedV
 	}
 
 	return &rows, nil
+}
+
+func (t *TableDefinition) columnNames() []string {
+	cols := make([]string, len(t.Columns))
+	for i, c := range t.Columns {
+		cols[i] = c.Name
+	}
+	return cols
+}
+
+func (t *TableDefinition) nonPrimaryKey() []string {
+	cols := make([]string, 0, len(t.Columns)-len(t.PrimaryKey))
+	for _, c := range t.Columns {
+		if !t.primaryKey(c.Name) {
+			cols = append(cols, c.Name)
+		}
+	}
+	return cols
 }
 
 func (t *TableDefinition) primaryKey(c string) bool {

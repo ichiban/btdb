@@ -9,20 +9,20 @@ import (
 func TestValues_Compare(t *testing.T) {
 	t.Run("less", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.Equal(-1, Values{1}.Compare(Values{2}))
-		assert.Equal(-1, Values{1, 2}.Compare(Values{1, 3}))
+		assert.Equal(-1, values{1}.compare(values{2}))
+		assert.Equal(-1, values{1, 2}.compare(values{1, 3}))
 	})
 
 	t.Run("equal", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.Equal(0, Values{1}.Compare(Values{1}))
-		assert.Equal(0, Values{1, 2}.Compare(Values{1, 2}))
-		assert.Equal(0, Values{"x"}.Compare(Values{"x"}))
+		assert.Equal(0, values{1}.compare(values{1}))
+		assert.Equal(0, values{1, 2}.compare(values{1, 2}))
+		assert.Equal(0, values{"x"}.compare(values{"x"}))
 	})
 
 	t.Run("greater", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.Equal(1, Values{2}.Compare(Values{1}))
-		assert.Equal(1, Values{1, 3}.Compare(Values{1, 2}))
+		assert.Equal(1, values{2}.compare(values{1}))
+		assert.Equal(1, values{1, 3}.compare(values{1, 2}))
 	})
 }

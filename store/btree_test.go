@@ -77,141 +77,140 @@ func TestBTree_Iterator(t *testing.T) {
 	assert.NoError(t, err)
 
 	l1 := NewPage(128, 32)
-	l1.Type = Leaf
-	l1.Next = 2
-	l1.Prev = 0
-	assert.Equal(t, 3, cap(l1.Cells))
-	l1.Cells = l1.Cells[:2]
-	l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-	l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+	l1.pageType = leaf
+	l1.next = 2
+	l1.prev = 0
+	assert.Equal(t, 3, cap(l1.cells))
+	l1.cells = l1.cells[:2]
+	l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+	l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 	assert.NoError(t, b.create(l1))
-	assert.Equal(t, PageNo(1), l1.PageNo)
+	assert.Equal(t, pageNo(1), l1.pageNo)
 
 	l2 := NewPage(128, 32)
-	l2.Type = Leaf
-	l2.Next = 3
-	l2.Prev = 1
-	assert.Equal(t, 3, cap(l2.Cells))
-	l2.Cells = l2.Cells[:2]
-	l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-	l2.Cells[1] = Cell{Payload: Payload{Key: Values{10}, Value: Values{"10"}}}
+	l2.pageType = leaf
+	l2.next = 3
+	l2.prev = 1
+	assert.Equal(t, 3, cap(l2.cells))
+	l2.cells = l2.cells[:2]
+	l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+	l2.cells[1] = cell{Payload: Payload{Key: values{10}, Value: values{"10"}}}
 	assert.NoError(t, b.create(l2))
-	assert.Equal(t, PageNo(2), l2.PageNo)
+	assert.Equal(t, pageNo(2), l2.pageNo)
 
 	l3 := NewPage(128, 32)
-	l3.Type = Leaf
-	l3.Next = 4
-	l3.Prev = 2
-	assert.Equal(t, 3, cap(l3.Cells))
-	l3.Cells = l3.Cells[:2]
-	l3.Cells[0] = Cell{Payload: Payload{Key: Values{11}, Value: Values{"11"}}}
-	l3.Cells[1] = Cell{Payload: Payload{Key: Values{12}, Value: Values{"12"}}}
+	l3.pageType = leaf
+	l3.next = 4
+	l3.prev = 2
+	assert.Equal(t, 3, cap(l3.cells))
+	l3.cells = l3.cells[:2]
+	l3.cells[0] = cell{Payload: Payload{Key: values{11}, Value: values{"11"}}}
+	l3.cells[1] = cell{Payload: Payload{Key: values{12}, Value: values{"12"}}}
 	assert.NoError(t, b.create(l3))
-	assert.Equal(t, PageNo(3), l3.PageNo)
+	assert.Equal(t, pageNo(3), l3.pageNo)
 
 	l4 := NewPage(128, 32)
-	l4.Type = Leaf
-	l4.Next = 5
-	l4.Prev = 3
-	assert.Equal(t, 3, cap(l4.Cells))
-	l4.Cells = l4.Cells[:2]
-	l4.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
-	l4.Cells[1] = Cell{Payload: Payload{Key: Values{15}, Value: Values{"15"}}}
+	l4.pageType = leaf
+	l4.next = 5
+	l4.prev = 3
+	assert.Equal(t, 3, cap(l4.cells))
+	l4.cells = l4.cells[:2]
+	l4.cells[0] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
+	l4.cells[1] = cell{Payload: Payload{Key: values{15}, Value: values{"15"}}}
 	assert.NoError(t, b.create(l4))
-	assert.Equal(t, PageNo(4), l4.PageNo)
+	assert.Equal(t, pageNo(4), l4.pageNo)
 
 	l5 := NewPage(128, 32)
-	l5.Type = Leaf
-	l5.Next = 0
-	l5.Prev = 4
-	assert.Equal(t, 3, cap(l5.Cells))
-	l5.Cells = l5.Cells[:3]
-	l5.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-	l5.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-	l5.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+	l5.pageType = leaf
+	l5.next = 0
+	l5.prev = 4
+	assert.Equal(t, 3, cap(l5.cells))
+	l5.cells = l5.cells[:3]
+	l5.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+	l5.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+	l5.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 	assert.NoError(t, b.create(l5))
-	assert.Equal(t, PageNo(5), l5.PageNo)
+	assert.Equal(t, pageNo(5), l5.pageNo)
 
 	i1 := NewPage(128, 32)
-	i1.Type = Branch
-	i1.Left = l1.PageNo
-	assert.Equal(t, 3, cap(i1.Cells))
-	i1.Cells = i1.Cells[:2]
-	i1.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-	i1.Cells[1] = Cell{Payload: Payload{Key: Values{11}, Right: l3.PageNo}}
+	i1.pageType = branch
+	i1.left = l1.pageNo
+	assert.Equal(t, 3, cap(i1.cells))
+	i1.cells = i1.cells[:2]
+	i1.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+	i1.cells[1] = cell{Payload: Payload{Key: values{11}, Right: l3.pageNo}}
 	assert.NoError(t, b.create(i1))
-	assert.Equal(t, PageNo(6), i1.PageNo)
+	assert.Equal(t, pageNo(6), i1.pageNo)
 
 	i2 := NewPage(128, 32)
-	i2.Type = Branch
-	i2.Left = l4.PageNo
-	assert.Equal(t, 3, cap(i2.Cells))
-	i2.Cells = i2.Cells[:1]
-	i2.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Right: l5.PageNo}}
+	i2.pageType = branch
+	i2.left = l4.pageNo
+	assert.Equal(t, 3, cap(i2.cells))
+	i2.cells = i2.cells[:1]
+	i2.cells[0] = cell{Payload: Payload{Key: values{16}, Right: l5.pageNo}}
 	assert.NoError(t, b.create(i2))
-	assert.Equal(t, PageNo(7), i2.PageNo)
+	assert.Equal(t, pageNo(7), i2.pageNo)
 
 	r := NewPage(128, 32)
-	r.Type = Branch
-	r.Left = i1.PageNo
-	assert.Equal(t, 3, cap(r.Cells))
-	r.Cells = r.Cells[:1]
-	r.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Right: i2.PageNo}}
+	r.pageType = branch
+	r.left = i1.pageNo
+	assert.Equal(t, 3, cap(r.cells))
+	r.cells = r.cells[:1]
+	r.cells[0] = cell{Payload: Payload{Key: values{13}, Right: i2.pageNo}}
 	assert.NoError(t, b.create(r))
-	assert.Equal(t, PageNo(8), r.PageNo)
+	assert.Equal(t, pageNo(8), r.pageNo)
 
 	t.Run("iterate from 1", func(t *testing.T) {
 		assert := assert.New(t)
 
-		iter := b.Iterator(r.PageNo, Values{1})
-		assert.NoError(iter.Err())
+		iter, err := b.Iterator(int(r.pageNo), values{1})
+		assert.NoError(err)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(1)}, iter.Key)
-		assert.Equal(Values{"1"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(1)}, iter.Key)
+		assert.Equal(values{"1"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(4)}, iter.Key)
-		assert.Equal(Values{"4"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(4)}, iter.Key)
+		assert.Equal(values{"4"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(9)}, iter.Key)
-		assert.Equal(Values{"9"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(9)}, iter.Key)
+		assert.Equal(values{"9"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(10)}, iter.Key)
-		assert.Equal(Values{"10"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(10)}, iter.Key)
+		assert.Equal(values{"10"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(11)}, iter.Key)
-		assert.Equal(Values{"11"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(11)}, iter.Key)
+		assert.Equal(values{"11"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(12)}, iter.Key)
-		assert.Equal(Values{"12"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(12)}, iter.Key)
+		assert.Equal(values{"12"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(13)}, iter.Key)
-		assert.Equal(Values{"13"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(13)}, iter.Key)
+		assert.Equal(values{"13"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(15)}, iter.Key)
-		assert.Equal(Values{"15"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(15)}, iter.Key)
+		assert.Equal(values{"15"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(16)}, iter.Key)
-		assert.Equal(Values{"16"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(16)}, iter.Key)
+		assert.Equal(values{"16"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(20)}, iter.Key)
-		assert.Equal(Values{"20"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(20)}, iter.Key)
+		assert.Equal(values{"20"}, iter.Value)
 
-		assert.True(iter.Next())
-		assert.Equal(Values{uint64(25)}, iter.Key)
-		assert.Equal(Values{"25"}, iter.Value)
+		assert.NoError(iter.Next())
+		assert.Equal(values{uint64(25)}, iter.Key)
+		assert.Equal(values{"25"}, iter.Value)
 
-		assert.False(iter.Next())
-		assert.NoError(iter.Err())
+		assert.Equal(ErrNotFound, iter.Next())
 	})
 }
 
@@ -224,93 +223,93 @@ func TestBTree_Search(t *testing.T) {
 	assert.NoError(t, err)
 
 	l1 := NewPage(128, 32)
-	l1.Type = Leaf
-	l1.Next = 2
-	l1.Prev = 0
-	assert.Equal(t, 3, cap(l1.Cells))
-	l1.Cells = l1.Cells[:2]
-	l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-	l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+	l1.pageType = leaf
+	l1.next = 2
+	l1.prev = 0
+	assert.Equal(t, 3, cap(l1.cells))
+	l1.cells = l1.cells[:2]
+	l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+	l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 	assert.NoError(t, b.create(l1))
-	assert.Equal(t, PageNo(1), l1.PageNo)
+	assert.Equal(t, pageNo(1), l1.pageNo)
 
 	l2 := NewPage(128, 32)
-	l2.Type = Leaf
-	l2.Next = 3
-	l2.Prev = 1
-	assert.Equal(t, 3, cap(l2.Cells))
-	l2.Cells = l2.Cells[:2]
-	l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-	l2.Cells[1] = Cell{Payload: Payload{Key: Values{10}, Value: Values{"10"}}}
+	l2.pageType = leaf
+	l2.next = 3
+	l2.prev = 1
+	assert.Equal(t, 3, cap(l2.cells))
+	l2.cells = l2.cells[:2]
+	l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+	l2.cells[1] = cell{Payload: Payload{Key: values{10}, Value: values{"10"}}}
 	assert.NoError(t, b.create(l2))
-	assert.Equal(t, PageNo(2), l2.PageNo)
+	assert.Equal(t, pageNo(2), l2.pageNo)
 
 	l3 := NewPage(128, 32)
-	l3.Type = Leaf
-	l3.Next = 4
-	l3.Prev = 2
-	assert.Equal(t, 3, cap(l3.Cells))
-	l3.Cells = l3.Cells[:2]
-	l3.Cells[0] = Cell{Payload: Payload{Key: Values{11}, Value: Values{"11"}}}
-	l3.Cells[1] = Cell{Payload: Payload{Key: Values{12}, Value: Values{"12"}}}
+	l3.pageType = leaf
+	l3.next = 4
+	l3.prev = 2
+	assert.Equal(t, 3, cap(l3.cells))
+	l3.cells = l3.cells[:2]
+	l3.cells[0] = cell{Payload: Payload{Key: values{11}, Value: values{"11"}}}
+	l3.cells[1] = cell{Payload: Payload{Key: values{12}, Value: values{"12"}}}
 	assert.NoError(t, b.create(l3))
-	assert.Equal(t, PageNo(3), l3.PageNo)
+	assert.Equal(t, pageNo(3), l3.pageNo)
 
 	l4 := NewPage(128, 32)
-	l4.Type = Leaf
-	l4.Next = 5
-	l4.Prev = 3
-	assert.Equal(t, 3, cap(l4.Cells))
-	l4.Cells = l4.Cells[:2]
-	l4.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
-	l4.Cells[1] = Cell{Payload: Payload{Key: Values{15}, Value: Values{"15"}}}
+	l4.pageType = leaf
+	l4.next = 5
+	l4.prev = 3
+	assert.Equal(t, 3, cap(l4.cells))
+	l4.cells = l4.cells[:2]
+	l4.cells[0] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
+	l4.cells[1] = cell{Payload: Payload{Key: values{15}, Value: values{"15"}}}
 	assert.NoError(t, b.create(l4))
-	assert.Equal(t, PageNo(4), l4.PageNo)
+	assert.Equal(t, pageNo(4), l4.pageNo)
 
 	l5 := NewPage(128, 32)
-	l5.Type = Leaf
-	l5.Next = 0
-	l5.Prev = 4
-	assert.Equal(t, 3, cap(l5.Cells))
-	l5.Cells = l5.Cells[:3]
-	l5.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-	l5.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-	l5.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+	l5.pageType = leaf
+	l5.next = 0
+	l5.prev = 4
+	assert.Equal(t, 3, cap(l5.cells))
+	l5.cells = l5.cells[:3]
+	l5.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+	l5.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+	l5.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 	assert.NoError(t, b.create(l5))
-	assert.Equal(t, PageNo(5), l5.PageNo)
+	assert.Equal(t, pageNo(5), l5.pageNo)
 
 	i1 := NewPage(128, 32)
-	i1.Type = Branch
-	i1.Left = l1.PageNo
-	assert.Equal(t, 3, cap(i1.Cells))
-	i1.Cells = i1.Cells[:2]
-	i1.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-	i1.Cells[1] = Cell{Payload: Payload{Key: Values{11}, Right: l3.PageNo}}
+	i1.pageType = branch
+	i1.left = l1.pageNo
+	assert.Equal(t, 3, cap(i1.cells))
+	i1.cells = i1.cells[:2]
+	i1.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+	i1.cells[1] = cell{Payload: Payload{Key: values{11}, Right: l3.pageNo}}
 	assert.NoError(t, b.create(i1))
-	assert.Equal(t, PageNo(6), i1.PageNo)
+	assert.Equal(t, pageNo(6), i1.pageNo)
 
 	i2 := NewPage(128, 32)
-	i2.Type = Branch
-	i2.Left = l4.PageNo
-	assert.Equal(t, 3, cap(i2.Cells))
-	i2.Cells = i2.Cells[:1]
-	i2.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Right: l5.PageNo}}
+	i2.pageType = branch
+	i2.left = l4.pageNo
+	assert.Equal(t, 3, cap(i2.cells))
+	i2.cells = i2.cells[:1]
+	i2.cells[0] = cell{Payload: Payload{Key: values{16}, Right: l5.pageNo}}
 	assert.NoError(t, b.create(i2))
-	assert.Equal(t, PageNo(7), i2.PageNo)
+	assert.Equal(t, pageNo(7), i2.pageNo)
 
 	r := NewPage(128, 32)
-	r.Type = Branch
-	r.Left = i1.PageNo
-	assert.Equal(t, 3, cap(r.Cells))
-	r.Cells = r.Cells[:1]
-	r.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Right: i2.PageNo}}
+	r.pageType = branch
+	r.left = i1.pageNo
+	assert.Equal(t, 3, cap(r.cells))
+	r.cells = r.cells[:1]
+	r.cells[0] = cell{Payload: Payload{Key: values{13}, Right: i2.pageNo}}
 	assert.NoError(t, b.create(r))
-	assert.Equal(t, PageNo(8), r.PageNo)
+	assert.Equal(t, pageNo(8), r.pageNo)
 
 	t.Run("select 1", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{1})
+		v, err := b.Search(int(r.pageNo), []interface{}{1})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"1"}, v)
 	})
@@ -318,7 +317,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 4", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{4})
+		v, err := b.Search(int(r.pageNo), []interface{}{4})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"4"}, v)
 	})
@@ -326,7 +325,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 9", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{9})
+		v, err := b.Search(int(r.pageNo), []interface{}{9})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"9"}, v)
 	})
@@ -334,7 +333,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 10", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{10})
+		v, err := b.Search(int(r.pageNo), []interface{}{10})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"10"}, v)
 	})
@@ -342,7 +341,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 11", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{11})
+		v, err := b.Search(int(r.pageNo), []interface{}{11})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"11"}, v)
 	})
@@ -350,7 +349,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 12", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{12})
+		v, err := b.Search(int(r.pageNo), []interface{}{12})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"12"}, v)
 	})
@@ -358,7 +357,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 13", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{13})
+		v, err := b.Search(int(r.pageNo), []interface{}{13})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"13"}, v)
 	})
@@ -366,7 +365,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 15", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{15})
+		v, err := b.Search(int(r.pageNo), []interface{}{15})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"15"}, v)
 	})
@@ -374,7 +373,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 16", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{16})
+		v, err := b.Search(int(r.pageNo), []interface{}{16})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"16"}, v)
 	})
@@ -382,7 +381,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 20", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{20})
+		v, err := b.Search(int(r.pageNo), []interface{}{20})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"20"}, v)
 	})
@@ -390,7 +389,7 @@ func TestBTree_Search(t *testing.T) {
 	t.Run("select 25", func(t *testing.T) {
 		assert := assert.New(t)
 
-		v, err := b.Search(int(r.PageNo), []interface{}{25})
+		v, err := b.Search(int(r.pageNo), []interface{}{25})
 		assert.NoError(err)
 		assert.Equal([]interface{}{"25"}, v)
 	})
@@ -410,73 +409,73 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:3]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
-		l1.Cells[2] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:3]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
+		l1.cells[2] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 0
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:2]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l2.pageType = leaf
+		l2.next = 0
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:2]
+		l2.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:1]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Right: l2.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:1]
+		r.cells[0] = cell{Payload: Payload{Key: values{16}, Right: l2.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(3), r.PageNo)
+		assert.Equal(pageNo(3), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{20}, Values{"20"})
+		n, err := b.Insert(int(r.pageNo), values{20}, values{"20"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, PageNo(n))
+		assert.Equal(r.pageNo, pageNo(n))
 
-		r, err = b.get(PageNo(3))
+		r, err = b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(PageNo(1), r.Left)
-		assert.Len(r.Cells, 1)
-		assert.Equal(Values{uint64(16)}, r.Cells[0].Key)
-		assert.Equal(PageNo(2), r.Cells[0].Right)
+		assert.Equal(pageNo(1), r.left)
+		assert.Len(r.cells, 1)
+		assert.Equal(values{uint64(16)}, r.cells[0].Key)
+		assert.Equal(pageNo(2), r.cells[0].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(2), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 3)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
-		assert.Equal(Values{uint64(9)}, l1.Cells[2].Key)
-		assert.Equal(Values{"9"}, l1.Cells[2].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(2), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 3)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
+		assert.Equal(values{uint64(9)}, l1.cells[2].Key)
+		assert.Equal(values{"9"}, l1.cells[2].Value)
 
-		l2, err = b.get(PageNo(2))
+		l2, err = b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(0), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l2.Cells[0].Key)
-		assert.Equal(Values{"16"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l2.Cells[1].Key)
-		assert.Equal(Values{"20"}, l2.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l2.Cells[2].Key)
-		assert.Equal(Values{"25"}, l2.Cells[2].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(0), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 3)
+		assert.Equal(values{uint64(16)}, l2.cells[0].Key)
+		assert.Equal(values{"16"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l2.cells[1].Key)
+		assert.Equal(values{"20"}, l2.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l2.cells[2].Key)
+		assert.Equal(values{"25"}, l2.cells[2].Value)
 	})
 
 	t.Run("insert 13", func(t *testing.T) {
@@ -490,85 +489,85 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:3]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
-		l1.Cells[2] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:3]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
+		l1.cells[2] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 0
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:3]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-		l2.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l2.pageType = leaf
+		l2.next = 0
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:3]
+		l2.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+		l2.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:1]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Right: l2.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:1]
+		r.cells[0] = cell{Payload: Payload{Key: values{16}, Right: l2.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(3), r.PageNo)
+		assert.Equal(pageNo(3), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{13}, Values{"13"})
+		n, err := b.Insert(int(r.pageNo), values{13}, values{"13"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, PageNo(n))
+		assert.Equal(r.pageNo, pageNo(n))
 
-		r, err = b.get(PageNo(3))
+		r, err = b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(PageNo(1), r.Left)
-		assert.Len(r.Cells, 2)
-		assert.Equal(Values{uint64(9)}, r.Cells[0].Key)
-		assert.Equal(PageNo(4), r.Cells[0].Right)
-		assert.Equal(Values{uint64(16)}, r.Cells[1].Key)
-		assert.Equal(PageNo(2), r.Cells[1].Right)
+		assert.Equal(pageNo(1), r.left)
+		assert.Len(r.cells, 2)
+		assert.Equal(values{uint64(9)}, r.cells[0].Key)
+		assert.Equal(pageNo(4), r.cells[0].Right)
+		assert.Equal(values{uint64(16)}, r.cells[1].Key)
+		assert.Equal(pageNo(2), r.cells[1].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(4), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 2)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(4), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 2)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
 
-		l2, err = b.get(PageNo(4))
+		l2, err = b.get(pageNo(4))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(2), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 2)
-		assert.Equal(Values{uint64(9)}, l2.Cells[0].Key)
-		assert.Equal(Values{"9"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(13)}, l2.Cells[1].Key)
-		assert.Equal(Values{"13"}, l2.Cells[1].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(2), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 2)
+		assert.Equal(values{uint64(9)}, l2.cells[0].Key)
+		assert.Equal(values{"9"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(13)}, l2.cells[1].Key)
+		assert.Equal(values{"13"}, l2.cells[1].Value)
 
-		l3, err := b.get(PageNo(2))
+		l3, err := b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l3.Type)
-		assert.Equal(PageNo(0), l3.Next)
-		assert.Equal(PageNo(4), l3.Prev)
-		assert.Len(l3.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l3.Cells[0].Key)
-		assert.Equal(Values{"16"}, l3.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l3.Cells[1].Key)
-		assert.Equal(Values{"20"}, l3.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l3.Cells[2].Key)
-		assert.Equal(Values{"25"}, l3.Cells[2].Value)
+		assert.Equal(leaf, l3.pageType)
+		assert.Equal(pageNo(0), l3.next)
+		assert.Equal(pageNo(4), l3.prev)
+		assert.Len(l3.cells, 3)
+		assert.Equal(values{uint64(16)}, l3.cells[0].Key)
+		assert.Equal(values{"16"}, l3.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l3.cells[1].Key)
+		assert.Equal(values{"20"}, l3.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l3.cells[2].Key)
+		assert.Equal(values{"25"}, l3.cells[2].Value)
 	})
 
 	t.Run("insert 15", func(t *testing.T) {
@@ -582,98 +581,98 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:2]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:2]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 3
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:2]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
+		l2.pageType = leaf
+		l2.next = 3
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:2]
+		l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		l3 := NewPage(128, 32)
-		l3.Type = Leaf
-		l3.Next = 0
-		l3.Prev = 2
-		assert.Equal(3, cap(l3.Cells))
-		l3.Cells = l3.Cells[:3]
-		l3.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l3.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-		l3.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l3.pageType = leaf
+		l3.next = 0
+		l3.prev = 2
+		assert.Equal(3, cap(l3.cells))
+		l3.cells = l3.cells[:3]
+		l3.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l3.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+		l3.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l3))
-		assert.Equal(PageNo(3), l3.PageNo)
+		assert.Equal(pageNo(3), l3.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:2]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-		r.Cells[1] = Cell{Payload: Payload{Key: Values{16}, Right: l3.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:2]
+		r.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+		r.cells[1] = cell{Payload: Payload{Key: values{16}, Right: l3.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(4), r.PageNo)
+		assert.Equal(pageNo(4), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{15}, Values{"15"})
+		n, err := b.Insert(int(r.pageNo), values{15}, values{"15"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, PageNo(n))
+		assert.Equal(r.pageNo, pageNo(n))
 
-		r, err = b.get(PageNo(4))
+		r, err = b.get(pageNo(4))
 		assert.NoError(err)
-		assert.Equal(PageNo(1), r.Left)
-		assert.Len(r.Cells, 2)
-		assert.Equal(Values{uint64(9)}, r.Cells[0].Key)
-		assert.Equal(PageNo(2), r.Cells[0].Right)
-		assert.Equal(Values{uint64(16)}, r.Cells[1].Key)
-		assert.Equal(PageNo(3), r.Cells[1].Right)
+		assert.Equal(pageNo(1), r.left)
+		assert.Len(r.cells, 2)
+		assert.Equal(values{uint64(9)}, r.cells[0].Key)
+		assert.Equal(pageNo(2), r.cells[0].Right)
+		assert.Equal(values{uint64(16)}, r.cells[1].Key)
+		assert.Equal(pageNo(3), r.cells[1].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(2), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 2)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(2), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 2)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
 
-		l2, err = b.get(PageNo(2))
+		l2, err = b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(3), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 3)
-		assert.Equal(Values{uint64(9)}, l2.Cells[0].Key)
-		assert.Equal(Values{"9"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(13)}, l2.Cells[1].Key)
-		assert.Equal(Values{"13"}, l2.Cells[1].Value)
-		assert.Equal(Values{uint64(15)}, l2.Cells[2].Key)
-		assert.Equal(Values{"15"}, l2.Cells[2].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(3), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 3)
+		assert.Equal(values{uint64(9)}, l2.cells[0].Key)
+		assert.Equal(values{"9"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(13)}, l2.cells[1].Key)
+		assert.Equal(values{"13"}, l2.cells[1].Value)
+		assert.Equal(values{uint64(15)}, l2.cells[2].Key)
+		assert.Equal(values{"15"}, l2.cells[2].Value)
 
-		l3, err = b.get(PageNo(3))
+		l3, err = b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(Leaf, l3.Type)
-		assert.Equal(PageNo(0), l3.Next)
-		assert.Equal(PageNo(2), l3.Prev)
-		assert.Len(l3.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l3.Cells[0].Key)
-		assert.Equal(Values{"16"}, l3.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l3.Cells[1].Key)
-		assert.Equal(Values{"20"}, l3.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l3.Cells[2].Key)
-		assert.Equal(Values{"25"}, l3.Cells[2].Value)
+		assert.Equal(leaf, l3.pageType)
+		assert.Equal(pageNo(0), l3.next)
+		assert.Equal(pageNo(2), l3.prev)
+		assert.Len(l3.cells, 3)
+		assert.Equal(values{uint64(16)}, l3.cells[0].Key)
+		assert.Equal(values{"16"}, l3.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l3.cells[1].Key)
+		assert.Equal(values{"20"}, l3.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l3.cells[2].Key)
+		assert.Equal(values{"25"}, l3.cells[2].Value)
 	})
 
 	t.Run("insert 10", func(t *testing.T) {
@@ -687,110 +686,110 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:2]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:2]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 3
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:3]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
-		l2.Cells[2] = Cell{Payload: Payload{Key: Values{15}, Value: Values{"15"}}}
+		l2.pageType = leaf
+		l2.next = 3
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:3]
+		l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
+		l2.cells[2] = cell{Payload: Payload{Key: values{15}, Value: values{"15"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		l3 := NewPage(128, 32)
-		l3.Type = Leaf
-		l3.Next = 0
-		l3.Prev = 2
-		assert.Equal(3, cap(l3.Cells))
-		l3.Cells = l3.Cells[:3]
-		l3.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l3.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-		l3.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l3.pageType = leaf
+		l3.next = 0
+		l3.prev = 2
+		assert.Equal(3, cap(l3.cells))
+		l3.cells = l3.cells[:3]
+		l3.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l3.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+		l3.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l3))
-		assert.Equal(PageNo(3), l3.PageNo)
+		assert.Equal(pageNo(3), l3.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:2]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-		r.Cells[1] = Cell{Payload: Payload{Key: Values{16}, Right: l3.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:2]
+		r.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+		r.cells[1] = cell{Payload: Payload{Key: values{16}, Right: l3.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(4), r.PageNo)
+		assert.Equal(pageNo(4), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{10}, Values{"10"})
+		n, err := b.Insert(int(r.pageNo), values{10}, values{"10"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, PageNo(n))
+		assert.Equal(r.pageNo, pageNo(n))
 
-		r, err = b.get(PageNo(4))
+		r, err = b.get(pageNo(4))
 		assert.NoError(err)
-		assert.Equal(PageNo(1), r.Left)
-		assert.Len(r.Cells, 3)
-		assert.Equal(Values{uint64(9)}, r.Cells[0].Key)
-		assert.Equal(PageNo(2), r.Cells[0].Right)
-		assert.Equal(Values{uint64(13)}, r.Cells[1].Key)
-		assert.Equal(PageNo(5), r.Cells[1].Right)
-		assert.Equal(Values{uint64(16)}, r.Cells[2].Key)
-		assert.Equal(PageNo(3), r.Cells[2].Right)
+		assert.Equal(pageNo(1), r.left)
+		assert.Len(r.cells, 3)
+		assert.Equal(values{uint64(9)}, r.cells[0].Key)
+		assert.Equal(pageNo(2), r.cells[0].Right)
+		assert.Equal(values{uint64(13)}, r.cells[1].Key)
+		assert.Equal(pageNo(5), r.cells[1].Right)
+		assert.Equal(values{uint64(16)}, r.cells[2].Key)
+		assert.Equal(pageNo(3), r.cells[2].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(2), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 2)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(2), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 2)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
 
-		l2, err = b.get(PageNo(2))
+		l2, err = b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(5), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 2)
-		assert.Equal(Values{uint64(9)}, l2.Cells[0].Key)
-		assert.Equal(Values{"9"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(10)}, l2.Cells[1].Key)
-		assert.Equal(Values{"10"}, l2.Cells[1].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(5), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 2)
+		assert.Equal(values{uint64(9)}, l2.cells[0].Key)
+		assert.Equal(values{"9"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(10)}, l2.cells[1].Key)
+		assert.Equal(values{"10"}, l2.cells[1].Value)
 
-		l3, err = b.get(PageNo(5))
+		l3, err = b.get(pageNo(5))
 		assert.NoError(err)
-		assert.Equal(Leaf, l3.Type)
-		assert.Equal(PageNo(3), l3.Next)
-		assert.Equal(PageNo(2), l3.Prev)
-		assert.Len(l3.Cells, 2)
-		assert.Equal(Values{uint64(13)}, l3.Cells[0].Key)
-		assert.Equal(Values{"13"}, l3.Cells[0].Value)
-		assert.Equal(Values{uint64(15)}, l3.Cells[1].Key)
-		assert.Equal(Values{"15"}, l3.Cells[1].Value)
+		assert.Equal(leaf, l3.pageType)
+		assert.Equal(pageNo(3), l3.next)
+		assert.Equal(pageNo(2), l3.prev)
+		assert.Len(l3.cells, 2)
+		assert.Equal(values{uint64(13)}, l3.cells[0].Key)
+		assert.Equal(values{"13"}, l3.cells[0].Value)
+		assert.Equal(values{uint64(15)}, l3.cells[1].Key)
+		assert.Equal(values{"15"}, l3.cells[1].Value)
 
-		l4, err := b.get(PageNo(3))
+		l4, err := b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(Leaf, l4.Type)
-		assert.Equal(PageNo(0), l4.Next)
-		assert.Equal(PageNo(5), l4.Prev)
-		assert.Len(l4.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l4.Cells[0].Key)
-		assert.Equal(Values{"16"}, l4.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l4.Cells[1].Key)
-		assert.Equal(Values{"20"}, l4.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l4.Cells[2].Key)
-		assert.Equal(Values{"25"}, l4.Cells[2].Value)
+		assert.Equal(leaf, l4.pageType)
+		assert.Equal(pageNo(0), l4.next)
+		assert.Equal(pageNo(5), l4.prev)
+		assert.Len(l4.cells, 3)
+		assert.Equal(values{uint64(16)}, l4.cells[0].Key)
+		assert.Equal(values{"16"}, l4.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l4.cells[1].Key)
+		assert.Equal(values{"20"}, l4.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l4.cells[2].Key)
+		assert.Equal(values{"25"}, l4.cells[2].Value)
 	})
 
 	t.Run("insert 11", func(t *testing.T) {
@@ -804,123 +803,123 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:2]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:2]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 3
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:2]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{10}, Value: Values{"10"}}}
+		l2.pageType = leaf
+		l2.next = 3
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:2]
+		l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{10}, Value: values{"10"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		l3 := NewPage(128, 32)
-		l3.Type = Leaf
-		l3.Next = 4
-		l3.Prev = 2
-		assert.Equal(3, cap(l3.Cells))
-		l3.Cells = l3.Cells[:2]
-		l3.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
-		l3.Cells[1] = Cell{Payload: Payload{Key: Values{15}, Value: Values{"15"}}}
+		l3.pageType = leaf
+		l3.next = 4
+		l3.prev = 2
+		assert.Equal(3, cap(l3.cells))
+		l3.cells = l3.cells[:2]
+		l3.cells[0] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
+		l3.cells[1] = cell{Payload: Payload{Key: values{15}, Value: values{"15"}}}
 		assert.NoError(b.create(l3))
-		assert.Equal(PageNo(3), l3.PageNo)
+		assert.Equal(pageNo(3), l3.pageNo)
 
 		l4 := NewPage(128, 32)
-		l4.Type = Leaf
-		l4.Next = 0
-		l4.Prev = 3
-		assert.Equal(3, cap(l4.Cells))
-		l4.Cells = l4.Cells[:3]
-		l4.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l4.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-		l4.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l4.pageType = leaf
+		l4.next = 0
+		l4.prev = 3
+		assert.Equal(3, cap(l4.cells))
+		l4.cells = l4.cells[:3]
+		l4.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l4.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+		l4.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l4))
-		assert.Equal(PageNo(4), l4.PageNo)
+		assert.Equal(pageNo(4), l4.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:3]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-		r.Cells[1] = Cell{Payload: Payload{Key: Values{13}, Right: l3.PageNo}}
-		r.Cells[2] = Cell{Payload: Payload{Key: Values{16}, Right: l4.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:3]
+		r.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+		r.cells[1] = cell{Payload: Payload{Key: values{13}, Right: l3.pageNo}}
+		r.cells[2] = cell{Payload: Payload{Key: values{16}, Right: l4.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(5), r.PageNo)
+		assert.Equal(pageNo(5), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{11}, Values{"11"})
+		n, err := b.Insert(int(r.pageNo), values{11}, values{"11"})
 		assert.NoError(err)
-		assert.Equal(r.PageNo, PageNo(n))
+		assert.Equal(r.pageNo, pageNo(n))
 
-		r, err = b.get(PageNo(5))
+		r, err = b.get(pageNo(5))
 		assert.NoError(err)
-		assert.Equal(PageNo(1), r.Left)
-		assert.Len(r.Cells, 3)
-		assert.Equal(Values{uint64(9)}, r.Cells[0].Key)
-		assert.Equal(PageNo(2), r.Cells[0].Right)
-		assert.Equal(Values{uint64(13)}, r.Cells[1].Key)
-		assert.Equal(PageNo(3), r.Cells[1].Right)
-		assert.Equal(Values{uint64(16)}, r.Cells[2].Key)
-		assert.Equal(PageNo(4), r.Cells[2].Right)
+		assert.Equal(pageNo(1), r.left)
+		assert.Len(r.cells, 3)
+		assert.Equal(values{uint64(9)}, r.cells[0].Key)
+		assert.Equal(pageNo(2), r.cells[0].Right)
+		assert.Equal(values{uint64(13)}, r.cells[1].Key)
+		assert.Equal(pageNo(3), r.cells[1].Right)
+		assert.Equal(values{uint64(16)}, r.cells[2].Key)
+		assert.Equal(pageNo(4), r.cells[2].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(2), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 2)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(2), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 2)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
 
-		l2, err = b.get(PageNo(2))
+		l2, err = b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(3), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 3)
-		assert.Equal(Values{uint64(9)}, l2.Cells[0].Key)
-		assert.Equal(Values{"9"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(10)}, l2.Cells[1].Key)
-		assert.Equal(Values{"10"}, l2.Cells[1].Value)
-		assert.Equal(Values{uint64(11)}, l2.Cells[2].Key)
-		assert.Equal(Values{"11"}, l2.Cells[2].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(3), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 3)
+		assert.Equal(values{uint64(9)}, l2.cells[0].Key)
+		assert.Equal(values{"9"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(10)}, l2.cells[1].Key)
+		assert.Equal(values{"10"}, l2.cells[1].Value)
+		assert.Equal(values{uint64(11)}, l2.cells[2].Key)
+		assert.Equal(values{"11"}, l2.cells[2].Value)
 
-		l3, err = b.get(PageNo(3))
+		l3, err = b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(Leaf, l3.Type)
-		assert.Equal(PageNo(4), l3.Next)
-		assert.Equal(PageNo(2), l3.Prev)
-		assert.Len(l3.Cells, 2)
-		assert.Equal(Values{uint64(13)}, l3.Cells[0].Key)
-		assert.Equal(Values{"13"}, l3.Cells[0].Value)
-		assert.Equal(Values{uint64(15)}, l3.Cells[1].Key)
-		assert.Equal(Values{"15"}, l3.Cells[1].Value)
+		assert.Equal(leaf, l3.pageType)
+		assert.Equal(pageNo(4), l3.next)
+		assert.Equal(pageNo(2), l3.prev)
+		assert.Len(l3.cells, 2)
+		assert.Equal(values{uint64(13)}, l3.cells[0].Key)
+		assert.Equal(values{"13"}, l3.cells[0].Value)
+		assert.Equal(values{uint64(15)}, l3.cells[1].Key)
+		assert.Equal(values{"15"}, l3.cells[1].Value)
 
-		l4, err = b.get(PageNo(4))
+		l4, err = b.get(pageNo(4))
 		assert.NoError(err)
-		assert.Equal(Leaf, l4.Type)
-		assert.Equal(PageNo(0), l4.Next)
-		assert.Equal(PageNo(3), l4.Prev)
-		assert.Len(l4.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l4.Cells[0].Key)
-		assert.Equal(Values{"16"}, l4.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l4.Cells[1].Key)
-		assert.Equal(Values{"20"}, l4.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l4.Cells[2].Key)
-		assert.Equal(Values{"25"}, l4.Cells[2].Value)
+		assert.Equal(leaf, l4.pageType)
+		assert.Equal(pageNo(0), l4.next)
+		assert.Equal(pageNo(3), l4.prev)
+		assert.Len(l4.cells, 3)
+		assert.Equal(values{uint64(16)}, l4.cells[0].Key)
+		assert.Equal(values{"16"}, l4.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l4.cells[1].Key)
+		assert.Equal(values{"20"}, l4.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l4.cells[2].Key)
+		assert.Equal(values{"25"}, l4.cells[2].Value)
 	})
 
 	t.Run("insert 12", func(t *testing.T) {
@@ -934,146 +933,146 @@ func TestBTree_Insert(t *testing.T) {
 		assert.NoError(err)
 
 		l1 := NewPage(128, 32)
-		l1.Type = Leaf
-		l1.Next = 2
-		l1.Prev = 0
-		assert.Equal(3, cap(l1.Cells))
-		l1.Cells = l1.Cells[:2]
-		l1.Cells[0] = Cell{Payload: Payload{Key: Values{1}, Value: Values{"1"}}}
-		l1.Cells[1] = Cell{Payload: Payload{Key: Values{4}, Value: Values{"4"}}}
+		l1.pageType = leaf
+		l1.next = 2
+		l1.prev = 0
+		assert.Equal(3, cap(l1.cells))
+		l1.cells = l1.cells[:2]
+		l1.cells[0] = cell{Payload: Payload{Key: values{1}, Value: values{"1"}}}
+		l1.cells[1] = cell{Payload: Payload{Key: values{4}, Value: values{"4"}}}
 		assert.NoError(b.create(l1))
-		assert.Equal(PageNo(1), l1.PageNo)
+		assert.Equal(pageNo(1), l1.pageNo)
 
 		l2 := NewPage(128, 32)
-		l2.Type = Leaf
-		l2.Next = 3
-		l2.Prev = 1
-		assert.Equal(3, cap(l2.Cells))
-		l2.Cells = l2.Cells[:3]
-		l2.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Value: Values{"9"}}}
-		l2.Cells[1] = Cell{Payload: Payload{Key: Values{10}, Value: Values{"10"}}}
-		l2.Cells[2] = Cell{Payload: Payload{Key: Values{11}, Value: Values{"11"}}}
+		l2.pageType = leaf
+		l2.next = 3
+		l2.prev = 1
+		assert.Equal(3, cap(l2.cells))
+		l2.cells = l2.cells[:3]
+		l2.cells[0] = cell{Payload: Payload{Key: values{9}, Value: values{"9"}}}
+		l2.cells[1] = cell{Payload: Payload{Key: values{10}, Value: values{"10"}}}
+		l2.cells[2] = cell{Payload: Payload{Key: values{11}, Value: values{"11"}}}
 		assert.NoError(b.create(l2))
-		assert.Equal(PageNo(2), l2.PageNo)
+		assert.Equal(pageNo(2), l2.pageNo)
 
 		l3 := NewPage(128, 32)
-		l3.Type = Leaf
-		l3.Next = 4
-		l3.Prev = 2
-		assert.Equal(3, cap(l3.Cells))
-		l3.Cells = l3.Cells[:2]
-		l3.Cells[0] = Cell{Payload: Payload{Key: Values{13}, Value: Values{"13"}}}
-		l3.Cells[1] = Cell{Payload: Payload{Key: Values{15}, Value: Values{"15"}}}
+		l3.pageType = leaf
+		l3.next = 4
+		l3.prev = 2
+		assert.Equal(3, cap(l3.cells))
+		l3.cells = l3.cells[:2]
+		l3.cells[0] = cell{Payload: Payload{Key: values{13}, Value: values{"13"}}}
+		l3.cells[1] = cell{Payload: Payload{Key: values{15}, Value: values{"15"}}}
 		assert.NoError(b.create(l3))
-		assert.Equal(PageNo(3), l3.PageNo)
+		assert.Equal(pageNo(3), l3.pageNo)
 
 		l4 := NewPage(128, 32)
-		l4.Type = Leaf
-		l4.Next = 0
-		l4.Prev = 3
-		assert.Equal(3, cap(l4.Cells))
-		l4.Cells = l4.Cells[:3]
-		l4.Cells[0] = Cell{Payload: Payload{Key: Values{16}, Value: Values{"16"}}}
-		l4.Cells[1] = Cell{Payload: Payload{Key: Values{20}, Value: Values{"20"}}}
-		l4.Cells[2] = Cell{Payload: Payload{Key: Values{25}, Value: Values{"25"}}}
+		l4.pageType = leaf
+		l4.next = 0
+		l4.prev = 3
+		assert.Equal(3, cap(l4.cells))
+		l4.cells = l4.cells[:3]
+		l4.cells[0] = cell{Payload: Payload{Key: values{16}, Value: values{"16"}}}
+		l4.cells[1] = cell{Payload: Payload{Key: values{20}, Value: values{"20"}}}
+		l4.cells[2] = cell{Payload: Payload{Key: values{25}, Value: values{"25"}}}
 		assert.NoError(b.create(l4))
-		assert.Equal(PageNo(4), l4.PageNo)
+		assert.Equal(pageNo(4), l4.pageNo)
 
 		r := NewPage(128, 32)
-		r.Type = Branch
-		r.Left = l1.PageNo
-		assert.Equal(3, cap(r.Cells))
-		r.Cells = r.Cells[:3]
-		r.Cells[0] = Cell{Payload: Payload{Key: Values{9}, Right: l2.PageNo}}
-		r.Cells[1] = Cell{Payload: Payload{Key: Values{13}, Right: l3.PageNo}}
-		r.Cells[2] = Cell{Payload: Payload{Key: Values{16}, Right: l4.PageNo}}
+		r.pageType = branch
+		r.left = l1.pageNo
+		assert.Equal(3, cap(r.cells))
+		r.cells = r.cells[:3]
+		r.cells[0] = cell{Payload: Payload{Key: values{9}, Right: l2.pageNo}}
+		r.cells[1] = cell{Payload: Payload{Key: values{13}, Right: l3.pageNo}}
+		r.cells[2] = cell{Payload: Payload{Key: values{16}, Right: l4.pageNo}}
 		assert.NoError(b.create(r))
-		assert.Equal(PageNo(5), r.PageNo)
+		assert.Equal(pageNo(5), r.pageNo)
 
-		n, err := b.Insert(int(r.PageNo), Values{12}, Values{"12"})
+		n, err := b.Insert(int(r.pageNo), values{12}, values{"12"})
 		assert.NoError(err)
-		assert.Equal(PageNo(8), PageNo(n)) // new root
+		assert.Equal(pageNo(8), pageNo(n)) // new root
 
-		r, err = b.get(PageNo(8))
+		r, err = b.get(pageNo(8))
 		assert.NoError(err)
-		assert.Equal(PageNo(5), r.Left)
-		assert.Len(r.Cells, 1)
-		assert.Equal(Values{uint64(13)}, r.Cells[0].Key)
-		assert.Equal(PageNo(7), r.Cells[0].Right)
+		assert.Equal(pageNo(5), r.left)
+		assert.Len(r.cells, 1)
+		assert.Equal(values{uint64(13)}, r.cells[0].Key)
+		assert.Equal(pageNo(7), r.cells[0].Right)
 
-		i1, err := b.get(PageNo(5))
+		i1, err := b.get(pageNo(5))
 		assert.NoError(err)
-		assert.Equal(Branch, i1.Type)
-		assert.Equal(PageNo(1), i1.Left)
-		assert.Len(i1.Cells, 2)
-		assert.Equal(Values{uint64(9)}, i1.Cells[0].Key)
-		assert.Equal(PageNo(2), i1.Cells[0].Right)
-		assert.Equal(Values{uint64(11)}, i1.Cells[1].Key)
-		assert.Equal(PageNo(6), i1.Cells[1].Right)
+		assert.Equal(branch, i1.pageType)
+		assert.Equal(pageNo(1), i1.left)
+		assert.Len(i1.cells, 2)
+		assert.Equal(values{uint64(9)}, i1.cells[0].Key)
+		assert.Equal(pageNo(2), i1.cells[0].Right)
+		assert.Equal(values{uint64(11)}, i1.cells[1].Key)
+		assert.Equal(pageNo(6), i1.cells[1].Right)
 
-		i2, err := b.get(PageNo(7))
+		i2, err := b.get(pageNo(7))
 		assert.NoError(err)
-		assert.Equal(Branch, i2.Type)
-		assert.Equal(PageNo(3), i2.Left)
-		assert.Len(i2.Cells, 1)
-		assert.Equal(Values{uint64(16)}, i2.Cells[0].Key)
-		assert.Equal(PageNo(4), i2.Cells[0].Right)
+		assert.Equal(branch, i2.pageType)
+		assert.Equal(pageNo(3), i2.left)
+		assert.Len(i2.cells, 1)
+		assert.Equal(values{uint64(16)}, i2.cells[0].Key)
+		assert.Equal(pageNo(4), i2.cells[0].Right)
 
-		l1, err = b.get(PageNo(1))
+		l1, err = b.get(pageNo(1))
 		assert.NoError(err)
-		assert.Equal(Leaf, l1.Type)
-		assert.Equal(PageNo(2), l1.Next)
-		assert.Equal(PageNo(0), l1.Prev)
-		assert.Len(l1.Cells, 2)
-		assert.Equal(Values{uint64(1)}, l1.Cells[0].Key)
-		assert.Equal(Values{"1"}, l1.Cells[0].Value)
-		assert.Equal(Values{uint64(4)}, l1.Cells[1].Key)
-		assert.Equal(Values{"4"}, l1.Cells[1].Value)
+		assert.Equal(leaf, l1.pageType)
+		assert.Equal(pageNo(2), l1.next)
+		assert.Equal(pageNo(0), l1.prev)
+		assert.Len(l1.cells, 2)
+		assert.Equal(values{uint64(1)}, l1.cells[0].Key)
+		assert.Equal(values{"1"}, l1.cells[0].Value)
+		assert.Equal(values{uint64(4)}, l1.cells[1].Key)
+		assert.Equal(values{"4"}, l1.cells[1].Value)
 
-		l2, err = b.get(PageNo(2))
+		l2, err = b.get(pageNo(2))
 		assert.NoError(err)
-		assert.Equal(Leaf, l2.Type)
-		assert.Equal(PageNo(6), l2.Next)
-		assert.Equal(PageNo(1), l2.Prev)
-		assert.Len(l2.Cells, 2)
-		assert.Equal(Values{uint64(9)}, l2.Cells[0].Key)
-		assert.Equal(Values{"9"}, l2.Cells[0].Value)
-		assert.Equal(Values{uint64(10)}, l2.Cells[1].Key)
-		assert.Equal(Values{"10"}, l2.Cells[1].Value)
+		assert.Equal(leaf, l2.pageType)
+		assert.Equal(pageNo(6), l2.next)
+		assert.Equal(pageNo(1), l2.prev)
+		assert.Len(l2.cells, 2)
+		assert.Equal(values{uint64(9)}, l2.cells[0].Key)
+		assert.Equal(values{"9"}, l2.cells[0].Value)
+		assert.Equal(values{uint64(10)}, l2.cells[1].Key)
+		assert.Equal(values{"10"}, l2.cells[1].Value)
 
-		l3, err = b.get(PageNo(6))
+		l3, err = b.get(pageNo(6))
 		assert.NoError(err)
-		assert.Equal(Leaf, l3.Type)
-		assert.Equal(PageNo(3), l3.Next)
-		assert.Equal(PageNo(2), l3.Prev)
-		assert.Len(l3.Cells, 2)
-		assert.Equal(Values{uint64(11)}, l3.Cells[0].Key)
-		assert.Equal(Values{"11"}, l3.Cells[0].Value)
-		assert.Equal(Values{uint64(12)}, l3.Cells[1].Key)
-		assert.Equal(Values{"12"}, l3.Cells[1].Value)
+		assert.Equal(leaf, l3.pageType)
+		assert.Equal(pageNo(3), l3.next)
+		assert.Equal(pageNo(2), l3.prev)
+		assert.Len(l3.cells, 2)
+		assert.Equal(values{uint64(11)}, l3.cells[0].Key)
+		assert.Equal(values{"11"}, l3.cells[0].Value)
+		assert.Equal(values{uint64(12)}, l3.cells[1].Key)
+		assert.Equal(values{"12"}, l3.cells[1].Value)
 
-		l4, err = b.get(PageNo(3))
+		l4, err = b.get(pageNo(3))
 		assert.NoError(err)
-		assert.Equal(Leaf, l4.Type)
-		assert.Equal(PageNo(4), l4.Next)
-		assert.Equal(PageNo(6), l4.Prev)
-		assert.Len(l4.Cells, 2)
-		assert.Equal(Values{uint64(13)}, l4.Cells[0].Key)
-		assert.Equal(Values{"13"}, l4.Cells[0].Value)
-		assert.Equal(Values{uint64(15)}, l4.Cells[1].Key)
-		assert.Equal(Values{"15"}, l4.Cells[1].Value)
+		assert.Equal(leaf, l4.pageType)
+		assert.Equal(pageNo(4), l4.next)
+		assert.Equal(pageNo(6), l4.prev)
+		assert.Len(l4.cells, 2)
+		assert.Equal(values{uint64(13)}, l4.cells[0].Key)
+		assert.Equal(values{"13"}, l4.cells[0].Value)
+		assert.Equal(values{uint64(15)}, l4.cells[1].Key)
+		assert.Equal(values{"15"}, l4.cells[1].Value)
 
-		l5, err := b.get(PageNo(4))
+		l5, err := b.get(pageNo(4))
 		assert.NoError(err)
-		assert.Equal(Leaf, l5.Type)
-		assert.Equal(PageNo(0), l5.Next)
-		assert.Equal(PageNo(3), l5.Prev)
-		assert.Len(l5.Cells, 3)
-		assert.Equal(Values{uint64(16)}, l5.Cells[0].Key)
-		assert.Equal(Values{"16"}, l5.Cells[0].Value)
-		assert.Equal(Values{uint64(20)}, l5.Cells[1].Key)
-		assert.Equal(Values{"20"}, l5.Cells[1].Value)
-		assert.Equal(Values{uint64(25)}, l5.Cells[2].Key)
-		assert.Equal(Values{"25"}, l5.Cells[2].Value)
+		assert.Equal(leaf, l5.pageType)
+		assert.Equal(pageNo(0), l5.next)
+		assert.Equal(pageNo(3), l5.prev)
+		assert.Len(l5.cells, 3)
+		assert.Equal(values{uint64(16)}, l5.cells[0].Key)
+		assert.Equal(values{"16"}, l5.cells[0].Value)
+		assert.Equal(values{uint64(20)}, l5.cells[1].Key)
+		assert.Equal(values{"20"}, l5.cells[1].Value)
+		assert.Equal(values{uint64(25)}, l5.cells[2].Key)
+		assert.Equal(values{"25"}, l5.cells[2].Value)
 	})
 }

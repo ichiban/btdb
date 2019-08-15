@@ -12,7 +12,8 @@ import (
 )
 
 var ErrNotFound = xerrors.New("not found")
-var ErrWrongSize = xerrors.New("wrong size")
+
+var errWrongSize = xerrors.New("wrong size")
 
 type BTree struct {
 	header
@@ -43,7 +44,7 @@ type header struct {
 	Signature  [8]byte
 	PageSize   uint32
 	CellSize   uint32
-	RootPageNo PageNo
+	RootPageNo pageNo
 }
 
 func (h *header) Root() int {
@@ -92,7 +93,7 @@ func Create(name string, opts ...createOption) (*BTree, error) {
 	for _, o := range opts {
 		o(&b)
 	}
-	if err := b.UpdateHeader(); err != nil {
+	if err := b.updateHeader(); err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -136,11 +137,11 @@ func (b *BTree) Close() error {
 }
 
 func (b *BTree) UpdateRoot(r int) error {
-	b.RootPageNo = PageNo(r)
-	return b.UpdateHeader()
+	b.RootPageNo = pageNo(r)
+	return b.updateHeader()
 }
 
-func (b *BTree) UpdateHeader() error {
+func (b *BTree) updateHeader() error {
 	if _, err := b.file.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
@@ -150,62 +151,77 @@ func (b *BTree) UpdateHeader() error {
 	return nil
 }
 
-func (b *BTree) Iterator(root PageNo, key Values) *Iterator {
-	p, err := b.get(root)
+func (b *BTree) First(root int) (*Iterator, error) {
+	p, err := b.get(pageNo(root))
 	if err != nil {
-		return &Iterator{
-			err: xerrors.Errorf("failed to get root: %w", err),
-		}
+		return nil, xerrors.Errorf("failed to get root: %w", err)
 	}
-	switch p.Type {
-	case Leaf:
-		i := sort.Search(len(p.Cells), func(i int) bool {
-			return key.Compare(p.Cells[i].Key) <= 0
+	switch p.pageType {
+	case leaf:
+		return &Iterator{
+			btree: b,
+			page:  p,
+			index: -1,
+		}, nil
+	case branch:
+		return b.First(int(p.left))
+	default:
+		return nil, xerrors.New("invalid page type")
+	}
+}
+
+func (b *BTree) Iterator(root int, key []interface{}) (*Iterator, error) {
+	p, err := b.get(pageNo(root))
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get root: %w", err)
+	}
+	switch p.pageType {
+	case leaf:
+		i := sort.Search(len(p.cells), func(i int) bool {
+			return values(key).compare(p.cells[i].Key) <= 0
 		})
 		return &Iterator{
 			btree: b,
 			page:  p,
 			index: i - 1,
-		}
-	case Branch:
-		i := sort.Search(len(p.Cells), func(i int) bool {
-			return key.Compare(p.Cells[i].Key) < 0
+		}, nil
+	case branch:
+		i := sort.Search(len(p.cells), func(i int) bool {
+			return values(key).compare(p.cells[i].Key) < 0
 		})
 		i--
 		if i < 0 {
-			return b.Iterator(p.Left, key)
+			return b.Iterator(int(p.left), key)
 		}
-		return b.Iterator(p.Cells[i].Right, key)
+		return b.Iterator(int(p.cells[i].Right), key)
 	default:
-		return &Iterator{
-			err: xerrors.New("invalid page type"),
-		}
+		return nil, xerrors.New("invalid page type")
 	}
 }
 
 func (b *BTree) Search(root int, key []interface{}) ([]interface{}, error) {
-	iter := b.Iterator(PageNo(root), key)
-	if !iter.Next() {
-		if err := iter.Err(); err != nil {
-			return nil, err
-		}
-		return nil, ErrNotFound
+	iter, err := b.Iterator(root, key)
+	if err != nil {
+		return nil, err
 	}
-	if iter.Key.Compare(key) != 0 {
+	if err := iter.Next(); err != nil {
+		return nil, err
+	}
+	if iter.Key.compare(key) != 0 {
 		return nil, ErrNotFound
 	}
 	return iter.Value, nil
 }
 
 func (b *BTree) Update(root int, key, val []interface{}) error {
-	iter := b.Iterator(PageNo(root), key)
-	if !iter.Next() {
-		if err := iter.Err(); err != nil {
-			return err
-		}
-		return ErrNotFound
+	iter, err := b.Iterator(root, key)
+	if err != nil {
+		return err
 	}
-	if iter.Key.Compare(key) != 0 {
+	if err := iter.Next(); err != nil {
+		return err
+	}
+	if iter.Key.compare(key) != 0 {
 		return ErrNotFound
 	}
 	iter.Value = val
@@ -213,12 +229,12 @@ func (b *BTree) Update(root int, key, val []interface{}) error {
 }
 
 // TODO: cache
-func (b *BTree) get(i PageNo) (*Page, error) {
+func (b *BTree) get(i pageNo) (*Page, error) {
 	if i == 0 {
 		return nil, xerrors.Errorf("invalid page number: %d", i)
 	}
 	p := NewPage(int(b.PageSize), int(b.CellSize))
-	p.PageNo = i
+	p.pageNo = i
 	if _, err := b.file.Seek(int64(uint32(i)*b.PageSize), io.SeekStart); err != nil {
 		return nil, xerrors.Errorf("failed to seek start: %w", err)
 	}
@@ -227,13 +243,13 @@ func (b *BTree) get(i PageNo) (*Page, error) {
 		return nil, xerrors.Errorf("failed to read page: %v", err)
 	}
 	if n != int64(b.PageSize) {
-		return nil, ErrWrongSize
+		return nil, errWrongSize
 	}
 	return p, nil
 }
 
 func (b *BTree) update(p *Page) error {
-	if _, err := b.file.Seek(int64(uint32(p.PageNo)*b.PageSize), io.SeekStart); err != nil {
+	if _, err := b.file.Seek(int64(uint32(p.pageNo)*b.PageSize), io.SeekStart); err != nil {
 		return xerrors.Errorf("failed to seek start: %w", err)
 	}
 	n, err := p.WriteTo(b.file)
@@ -241,7 +257,7 @@ func (b *BTree) update(p *Page) error {
 		return xerrors.Errorf("failed to write page: %w", err)
 	}
 	if n != int64(b.PageSize) {
-		return ErrWrongSize
+		return errWrongSize
 	}
 	return nil
 }
@@ -256,51 +272,51 @@ func (b *BTree) create(p *Page) error {
 		return xerrors.Errorf("failed to write page: %w", err)
 	}
 	if n != int64(b.PageSize) {
-		return ErrWrongSize
+		return errWrongSize
 	}
-	p.PageNo = PageNo(offset / int64(b.PageSize))
+	p.pageNo = pageNo(offset / int64(b.PageSize))
 	return nil
 }
 
 func (b *BTree) CreateRoot() (int, error) {
 	r := NewPage(int(b.PageSize), int(b.CellSize))
-	r.Type = Leaf
+	r.pageType = leaf
 	if err := b.create(r); err != nil {
 		return 0, xerrors.Errorf("failed to create new root: %w", err)
 	}
-	return int(r.PageNo), nil
+	return int(r.pageNo), nil
 }
 
 func (b *BTree) Insert(root int, key, value []interface{}) (int, error) {
-	p, err := b.get(PageNo(root))
+	p, err := b.get(pageNo(root))
 	if err != nil {
 		return 0, xerrors.Errorf("failed to get root page: %w", err)
 	}
 
-	m, err := b.insert(p, &Cell{Payload: Payload{Key: key, Value: value}})
+	m, err := b.insert(p, &cell{Payload: Payload{Key: key, Value: value}})
 	if err != nil {
 		return 0, xerrors.Errorf("failed to insert: %w", err)
 	}
 
 	if m != nil {
 		r := NewPage(int(b.PageSize), int(b.CellSize))
-		r.Type = Branch
-		r.Left = PageNo(root)
-		r.Cells = r.Cells[:1]
-		r.Cells[0] = *m
+		r.pageType = branch
+		r.left = pageNo(root)
+		r.cells = r.cells[:1]
+		r.cells[0] = *m
 		if err := b.create(r); err != nil {
 			return 0, xerrors.Errorf("failed to create new root: %w", err)
 		}
 		p = r
 	}
 
-	return int(p.PageNo), nil
+	return int(p.pageNo), nil
 }
 
-func (b *BTree) insert(p *Page, c *Cell) (*Cell, error) {
-	switch p.Type {
-	case Leaf:
-		if !p.WillOverflow() {
+func (b *BTree) insert(p *Page, c *cell) (*cell, error) {
+	switch p.pageType {
+	case leaf:
+		if !p.willOverflow() {
 			if err := p.Insert(c); err != nil {
 				return nil, xerrors.Errorf("failed to insert: %w", err)
 			}
@@ -314,27 +330,27 @@ func (b *BTree) insert(p *Page, c *Cell) (*Cell, error) {
 		if err != nil {
 			return nil, xerrors.Errorf("failed to insert and split: %w", err)
 		}
-		r.Next = p.Next
-		r.Prev = p.PageNo
+		r.next = p.next
+		r.prev = p.pageNo
 		if err := b.create(r); err != nil {
 			return nil, xerrors.Errorf("failed to create right: %w", err)
 		}
-		p.Next = r.PageNo
+		p.next = r.pageNo
 		if err := b.update(p); err != nil {
 			return nil, xerrors.Errorf("failed to update: %w", err)
 		}
-		if r.Next != 0 {
-			n, err := b.get(r.Next)
+		if r.next != 0 {
+			n, err := b.get(r.next)
 			if err != nil {
 				return nil, xerrors.Errorf("failed to get next: %w", err)
 			}
-			n.Prev = r.PageNo
+			n.prev = r.pageNo
 			if err := b.update(n); err != nil {
 				return nil, xerrors.Errorf("failed to update next: %w", err)
 			}
 		}
-		return &Cell{Payload: Payload{Key: r.Cells[0].Key, Right: r.PageNo}}, nil
-	case Branch:
+		return &cell{Payload: Payload{Key: r.cells[0].Key, Right: r.pageNo}}, nil
+	case branch:
 		n, err := b.get(p.child(c.Key))
 		if err != nil {
 			return nil, xerrors.Errorf("failed to get child: %w", err)
@@ -347,7 +363,7 @@ func (b *BTree) insert(p *Page, c *Cell) (*Cell, error) {
 			return nil, nil
 		}
 
-		if !p.WillOverflow() {
+		if !p.willOverflow() {
 			if err := p.Insert(m); err != nil {
 				return nil, xerrors.Errorf("failed to insert: %w", err)
 			}
@@ -363,8 +379,8 @@ func (b *BTree) insert(p *Page, c *Cell) (*Cell, error) {
 		if err := b.update(p); err != nil {
 			return nil, xerrors.Errorf("failed to update: %w", err)
 		}
-		return &Cell{Payload: Payload{Key: k, Right: r.PageNo}}, nil
+		return &cell{Payload: Payload{Key: k, Right: r.pageNo}}, nil
 	default:
-		return nil, xerrors.Errorf("invalid page type: %s", p.Type)
+		return nil, xerrors.Errorf("invalid page type: %s", p.pageType)
 	}
 }

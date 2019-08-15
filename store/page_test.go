@@ -69,9 +69,9 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(int64(128), n)
 
-		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Left)
-		assert.Len(p.Cells, 0)
+		assert.Equal(branch, p.pageType)
+		assert.Equal(pageNo(0), p.left)
+		assert.Len(p.cells, 0)
 	})
 
 	t.Run("single cell", func(t *testing.T) {
@@ -125,10 +125,10 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(int64(128), n)
 
-		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Left)
-		assert.Len(p.Cells, 1)
-		assert.Equal(PageNo(0), p.Cells[0].Overflow)
+		assert.Equal(branch, p.pageType)
+		assert.Equal(pageNo(0), p.left)
+		assert.Len(p.cells, 1)
+		assert.Equal(pageNo(0), p.cells[0].overflow)
 	})
 
 	t.Run("multiple cells", func(t *testing.T) {
@@ -182,9 +182,9 @@ func TestPage_ReadFrom(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(int64(128), n)
 
-		assert.Equal(Branch, p.Type)
-		assert.Equal(PageNo(0), p.Left)
-		assert.Len(p.Cells, 3)
+		assert.Equal(branch, p.pageType)
+		assert.Equal(pageNo(0), p.left)
+		assert.Len(p.cells, 3)
 	})
 }
 
@@ -193,7 +193,7 @@ func TestPage_WriteTo(t *testing.T) {
 		assert := assert.New(t)
 
 		p := NewPage(32, 16)
-		p.Type = Branch
+		p.pageType = branch
 
 		var w bytes.Buffer
 		n, err := p.WriteTo(&w)
@@ -217,8 +217,8 @@ func TestPage_WriteTo(t *testing.T) {
 		assert := assert.New(t)
 
 		p := NewPage(32, 16)
-		p.Type = Branch
-		p.Cells = []Cell{
+		p.pageType = branch
+		p.cells = []cell{
 			{size: 16},
 		}
 
@@ -246,37 +246,37 @@ func TestPage_Insert(t *testing.T) {
 
 	p := NewPage(128, 32)
 
-	c1 := Cell{
+	c1 := cell{
 		Payload: Payload{
-			Key:   Values{1},
-			Value: Values{"a"},
+			Key:   values{1},
+			Value: values{"a"},
 		},
 	}
-	c2 := Cell{
+	c2 := cell{
 		Payload: Payload{
-			Key:   Values{2},
-			Value: Values{"b"},
+			Key:   values{2},
+			Value: values{"b"},
 		},
 	}
-	c3 := Cell{
+	c3 := cell{
 		Payload: Payload{
-			Key:   Values{3},
-			Value: Values{"c"},
+			Key:   values{3},
+			Value: values{"c"},
 		},
 	}
 
 	assert.NoError(p.Insert(&c1))
-	assert.Len(p.Cells, 1)
-	assert.Equal(c1, p.Cells[0])
+	assert.Len(p.cells, 1)
+	assert.Equal(c1, p.cells[0])
 
 	assert.NoError(p.Insert(&c3))
-	assert.Len(p.Cells, 2)
-	assert.Equal(c1, p.Cells[0])
-	assert.Equal(c3, p.Cells[1])
+	assert.Len(p.cells, 2)
+	assert.Equal(c1, p.cells[0])
+	assert.Equal(c3, p.cells[1])
 
 	assert.NoError(p.Insert(&c2))
-	assert.Len(p.Cells, 3)
-	assert.Equal(c1, p.Cells[0])
-	assert.Equal(c2, p.Cells[1])
-	assert.Equal(c3, p.Cells[2])
+	assert.Len(p.cells, 3)
+	assert.Equal(c1, p.cells[0])
+	assert.Equal(c2, p.cells[1])
+	assert.Equal(c3, p.cells[2])
 }

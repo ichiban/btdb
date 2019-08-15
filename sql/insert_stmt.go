@@ -3,10 +3,12 @@ package sql
 import (
 	"context"
 	"database/sql/driver"
+
+	"github.com/ichiban/btdb/store"
 )
 
 type InsertStatement struct {
-	store  Store
+	store  *store.BTree
 	Target string
 	Source *Rows
 }
@@ -46,10 +48,7 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 		return nil, err
 	}
 
-	cols := make([]string, len(td.Columns))
-	for i, c := range td.Columns {
-		cols[i] = c.Name
-	}
+	cols := td.columnNames()
 
 	ch := make(chan []driver.Value)
 	rows := Rows{
@@ -60,10 +59,11 @@ func (i *InsertStatement) QueryContext(ctx context.Context, args []driver.NamedV
 	go func() {
 		src := i.Source.projection(cols)
 
-		val := make([]driver.Value, len(td.Columns))
 		for {
+			val := make([]driver.Value, len(td.Columns))
 			if err := src.Next(val); err != nil {
-
+				rows.Err = err
+				break
 			}
 			k := make([]interface{}, 0, len(td.PrimaryKey))
 			v := make([]interface{}, 0, len(td.Columns)-len(td.PrimaryKey))

@@ -3,16 +3,18 @@ package sql
 import (
 	"database/sql/driver"
 
+	"github.com/ichiban/btdb/store"
+
 	"golang.org/x/xerrors"
 )
 
 type Parser struct {
-	store Store
+	store *store.BTree
 	lex   *Lexer
 	token token
 }
 
-func NewParser(s Store, input string) *Parser {
+func NewParser(s *store.BTree, input string) *Parser {
 	l := NewLexer(input)
 	go l.Run()
 	return &Parser{
@@ -127,7 +129,10 @@ func (p *Parser) tableExpression() (driver.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SelectStatement{From: s}, nil
+	return &SelectStatement{
+		store: p.store,
+		From:  s,
+	}, nil
 }
 
 func (p *Parser) fromClause() (string, error) {

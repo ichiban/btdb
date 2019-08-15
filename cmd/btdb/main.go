@@ -110,7 +110,7 @@ func writeRows(w io.Writer, r driver.Rows) error {
 		}
 		for i, v := range row {
 			switch v := v.(type) {
-			case int64:
+			case int64, uint64:
 				l[i] = fmt.Sprintf("%d", v)
 			case string:
 				l[i] = v

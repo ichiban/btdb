@@ -1,35 +1,27 @@
 package store
 
 type Iterator struct {
-	*Cell
+	*cell
 
 	btree *BTree
 	page  *Page
 	index int
-	err   error
 }
 
-func (i *Iterator) Next() bool {
-	if i.err != nil {
-		return false
-	}
-
-	if i.index == len(i.page.Cells)-1 {
-		if i.page.Next == 0 {
-			return false
+func (i *Iterator) Next() error {
+	if i.index == len(i.page.cells)-1 {
+		if i.page.next == 0 {
+			return ErrNotFound
 		}
-		i.page, i.err = i.btree.get(i.page.Next)
-		if i.err != nil {
-			return false
+		p, err := i.btree.get(i.page.next)
+		if err != nil {
+			return err
 		}
+		i.page = p
 		i.index = 0
 	} else {
 		i.index++
 	}
-	i.Cell = &i.page.Cells[i.index]
-	return true
-}
-
-func (i *Iterator) Err() error {
-	return i.err
+	i.cell = &i.page.cells[i.index]
+	return nil
 }

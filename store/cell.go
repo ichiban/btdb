@@ -12,17 +12,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Cell struct {
+type cell struct {
 	size int
 
-	Overflow PageNo // Points to the overflow page if it's not large enough. otherwise zero-value.
+	overflow pageNo // Points to the overflow page if it's not large enough. otherwise zero-value.
 	Payload
 }
 
-const CellHeaderSize = 4 + 4 // Overflow + Payload Size
+const cellHeaderSize = 4 + 4 // overflow + Payload Size
 
-func (c *Cell) ReadFrom(r io.Reader) (int64, error) {
-	if err := binary.Read(r, binary.BigEndian, &c.Overflow); err != nil {
+func (c *cell) ReadFrom(r io.Reader) (int64, error) {
+	if err := binary.Read(r, binary.BigEndian, &c.overflow); err != nil {
 		return 0, errors.Wrap(err, "failed to read cell overflow")
 	}
 
@@ -42,16 +42,16 @@ func (c *Cell) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	// TODO: overflow
-	if _, err := io.CopyN(ioutil.Discard, r, int64(c.size)-int64(CellHeaderSize)-int64(size)); err != nil {
+	if _, err := io.CopyN(ioutil.Discard, r, int64(c.size)-int64(cellHeaderSize)-int64(size)); err != nil {
 		return 0, err
 	}
 
 	return int64(c.size), nil
 }
 
-func (c *Cell) WriteTo(w io.Writer) (int64, error) {
+func (c *cell) WriteTo(w io.Writer) (int64, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, c.size))
-	if err := binary.Write(buf, binary.BigEndian, c.Overflow); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, c.overflow); err != nil {
 		return 0, err
 	}
 
@@ -71,7 +71,7 @@ func (c *Cell) WriteTo(w io.Writer) (int64, error) {
 	return int64(n), err
 }
 
-func (c Cell) GoString() string {
+func (c cell) GoString() string {
 	if c.Value == nil {
 		return fmt.Sprintf("%#v->%d", c.Key, c.Right)
 	} else {
@@ -81,7 +81,7 @@ func (c Cell) GoString() string {
 
 type Payload struct {
 	_struct bool   `codec:",uint"`
-	Key     Values `codec:"1,omitempty"`
-	Value   Values `codec:"2,omitempty"`
-	Right   PageNo `codec:"3,omitempty"`
+	Key     values `codec:"1,omitempty"`
+	Value   values `codec:"2,omitempty"`
+	Right   pageNo `codec:"3,omitempty"`
 }

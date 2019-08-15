@@ -24,8 +24,7 @@ func Create(name string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	t.RootPageNo = store.PageNo(r)
-	if err := t.UpdateHeader(); err != nil {
+	if err := t.UpdateRoot(r); err != nil {
 		return nil, err
 	}
 	return &Database{

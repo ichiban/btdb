@@ -45,18 +45,38 @@ create table dept(
 		assert := assert.New(t)
 		require := require.New(t)
 		p := NewParser(nil, `
-insert into DEPT (DEPTNO, DNAME, LOC)
-values(10, 'ACCOUNTING', 'NEW YORK');
+insert into dept (deptno, dname, loc)
+values
+(10, 'ACCOUNTING', 'NEW YORK'),
+(20, 'MARKETING', 'SAN FRANCISCO'),
+(30, 'HR', 'TOKYO');
 `)
 		s, err := p.DirectSQLStatement()
 		assert.NoError(err)
 		require.IsType(&InsertStatement{}, s)
 		is := s.(*InsertStatement)
-		assert.Equal("DEPT", is.Target)
-		assert.Equal([]string{"DEPTNO", "DNAME", "LOC"}, is.Source.Columns())
+		assert.Equal("dept", is.Target)
+		assert.Equal([]string{"deptno", "dname", "loc"}, is.Source.Columns())
 		vs := make([]driver.Value, len(is.Source.Columns()))
 		assert.NoError(is.Source.Next(vs))
 		assert.Equal([]driver.Value{int64(10), "ACCOUNTING", "NEW YORK"}, vs)
+		assert.NoError(is.Source.Next(vs))
+		assert.Equal([]driver.Value{int64(20), "MARKETING", "SAN FRANCISCO"}, vs)
+		assert.NoError(is.Source.Next(vs))
+		assert.Equal([]driver.Value{int64(30), "HR", "TOKYO"}, vs)
 		assert.Error(is.Source.Next(vs))
+	})
+
+	t.Run("simple select", func(t *testing.T) {
+		assert := assert.New(t)
+		require := require.New(t)
+		p := NewParser(nil, `
+SELECT * FROM dept;
+`)
+		s, err := p.DirectSQLStatement()
+		assert.NoError(err)
+		require.IsType(&SelectStatement{}, s)
+		ss := s.(*SelectStatement)
+		assert.Equal("dept", ss.From)
 	})
 }
